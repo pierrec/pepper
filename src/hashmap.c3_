@@ -1,0 +1,76 @@
+module hashmap;
+import std::hash::fnv64a;
+
+const N = 9;
+const MASK = (1 << N) - 1;
+
+struct HashMap
+{
+    String[1 << N] data;
+    usz len;
+}
+
+fn void HashMap.clear(&hm)
+{
+    *hm = {};
+}
+
+fn ulong next(ulong hash, ulong i)
+{
+    ulong step = (hash>>(64 - N)) | 1;
+    return (i + step) & MASK;
+}
+
+fn bool HashMap.has(&hm, String str)
+{
+    @walk(hm, str; String e, ulong i)
+    {
+        if (e.len == 0) return false;
+        if (e == str) return true;
+    };
+}
+
+fn String HashMap.get(&hm, String str)
+{
+    @walk(hm, str; String e, ulong i)
+    {
+        if (e.len == 0) return "";
+        if (e == str) return e;
+    };
+}
+
+fn void HashMap.add(&hm, String str)
+{
+    @walk(hm, str; String e, ulong i)
+    {
+        if (e.len == 0)
+        {
+            hm.data[i] = str;
+            hm.len++;
+            return;
+        }
+    };
+}
+
+fn void HashMap.del(&hm, String str)
+{
+    @walk(hm, str; String e, ulong i)
+    {
+        if (e == str)
+        {
+            hm.data[i] = "";
+            hm.len--;
+            return;
+        }
+    };
+}
+
+macro @walk(hm, str; @body(entry, i))
+{
+    ulong h = fnv64a::encode(str);
+    for (ulong i = h & MASK; ; i = next(h, i))
+    {
+        String entry = hm.data[i];
+        @body(entry, i);
+    }
+}
