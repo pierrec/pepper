@@ -2,6 +2,8 @@ module http::request;
 import std::io;
 import scanner;
 
+const MAX_HEADER_LINE = 1024;
+
 enum HTTPMethod : char
 {
     GET,
@@ -57,12 +59,13 @@ fn void HTTPRequest.init(&req)
 
 fn void! HTTPRequest.free(&req, Allocator* using = mem::heap())
 {
+    req.url.free(using)!;
     req.header.free(using)!;
 }
 
 fn void! HTTPRequest.read_from(&req, Stream src, Allocator* using = mem::heap())
 {
-    char[4 * 1024] buf;
+    char[MAX_HEADER_LINE] buf;
     Scanner sc;
     sc.init(src, buf[..]);
 
@@ -92,7 +95,7 @@ fn void! HTTPRequest.read_from(&req, Stream src, Allocator* using = mem::heap())
     if (sc.as_str() != "\r") return HTTPRequestError.INVALID_HEADER?;
 
     // Body.
-    char[] rest = sc.bytes();
+    String rest = sc.as_str().copy(using);
     req.body = BodyReader{ .data = rest, .reader = src }.as_stream();
 }
 
@@ -112,7 +115,9 @@ fn usz! BodyReader.read(&self, char[] bytes)
     usz n = min(bytes.len, self.data.len);
     bytes[:n] = self.data[:n];
     self.data = self.data[n..];
-    return n + self.reader.read(bytes[n..]);
+    bytes = bytes[n..];
+    if (bytes.len > 0) n += self.reader.read(bytes)!;
+    return n;
 }
 
 StreamInterface bodyreader_interface = {
