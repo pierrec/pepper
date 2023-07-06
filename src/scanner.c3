@@ -82,3 +82,8 @@ fn char[] Scanner.bytes(Scanner *sc)
     usz n = sc.split_idx - sc.anchor;
     return sc.buf[sc.anchor:n-1];
 }
+
+fn String Scanner.as_str(Scanner *sc)
+{
+    return (String)sc.bytes();
+}

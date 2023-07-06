@@ -27,11 +27,11 @@ fn void HTTPHeader.init(&h)
     h.data.init();
 }
 
-fn void HTTPHeader.free(&h)
+fn void! HTTPHeader.free(&h, Allocator* using = mem::heap())
 {
     h.data.@walk(; String name, String value)
     {
-        mem::free(value);
+        using.free(value)!;
     };
 }
 
@@ -58,16 +58,16 @@ fn void! HTTPHeader.del(&h, String name)
 }
 
 // https://www.rfc-editor.org/rfc/rfc7230.html#section-3.2.4
-fn void! HTTPHeader.scan(&h, Scanner *sc)
+fn void! HTTPHeader.scan(&h, Scanner *sc, Allocator* using = mem::heap())
 {
     while (sc.scan(':')!)
     {
-        char[] bytes = sc.bytes();
-        String name = String.tcopy((String)bytes);
+        String bytes = sc.as_str();
+        String name = String.tcopy(bytes);
         if (!sc.scan('\n')!) return HTTPHeaderError.INVALID_HEADER?;
-        bytes = sc.bytes();
+        bytes = sc.as_str();
         if (bytes.len < 2 || bytes[^1] != '\r') return HTTPHeaderError.INVALID_HEADER?;
-        String value = String.copy((String)bytes[:^1]);
+        String value = String.copy(bytes[:^1], using);
         h.set(name, value)!;
     }
 }

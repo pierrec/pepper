@@ -1,89 +1,120 @@
-module http;
+module http::request;
 import std::io;
+import scanner;
+
+enum HTTPMethod : char
+{
+    GET,
+    HEAD,
+    POST,
+    PUT,
+    DELETE,
+    CONNECT,
+    OPTIONS,
+    TRACE,
+    PATCH,
+}
+
+enum HTTPProto : char
+{
+    HTTP1_0,
+    HTTP1_1,
+}
 
 // https://www.rfc-editor.org/rfc/rfc7230.html#section-3.1.1
 struct HTTPRequest
 {
+    Allocator* allocator;
     HTTPMethod method;
     Url        url;
-    String     proto;
-    char       proto_major;
-    char       proto_minor;
+    HTTPProto  proto;
     HTTPHeader header;
-    char[]     body;
+    Stream     body;
 }
 
 fault HTTPRequestError
 {
     INVALID_STATUSLINE,
     INVALID_METHOD,
-    INVALID_URL,
+    INVALID_PATH,
     INVALID_PROTO,
+    INVALID_HEADER,
 }
 
-fn void HTTPRequest.free(HTTPRequest* req)
+fn HTTPMethod! to_method(String data) @local
 {
-    req.header.free();
-}
-
-fn usz! HTTPRequest.write_to(HTTPRequest* req, Stream out)
-{
-    // https://www.rfc-editor.org/rfc/rfc7230.html#section-3
-    // https://www.rfc-editor.org/rfc/rfc7230.html#section-3.1.1
-    DString msg;
-    msg.tinit(req.method.name.len + req.url.path.len + req.header.size + 8);
-    defer msg.free();
-    msg.printf("%s %s %s/%d.%d\r\n", req.method.name, req.url.path, req.proto, req.proto_major, req.proto_minor);
-
-    Stream msg_stream = msg.as_stream();
-    usz written = req.header.write_to(msg_stream)!;
-
-    written += out.write(msg.str())!;
-    written += out.write(req.body)!;
-    return written;
-}
-
-fn usz! HTTPRequest.parse(HTTPRequest* req, String str)
-{
-    usz! eol = str.index_of("\r\n");
-    if (catch eol) return HTTPResponseError.INVALID_STATUSLINE?;
-    String line = str[:eol];
-    str = str[eol+2:];
-    do METHOD:
+    foreach (i, m : HTTPMethod.names)
     {
-        foreach (m, name : HTTPMethod.names)
-        {
-            if (line.starts_with(name) && line.len > name.len && line[name.len] == ' ')
-            {
-                line = line[name.len+1:];
-                req.method = (HTTPMethod)m;
-                break METHOD;
-            }
-        }
-        return HTTPRequestError.INVALID_METHOD?;
-    };
-    Cut c;
-    c = cut(line, ' ');
-    String url = c.before;
-    if (url.len == 0) return HTTPRequestError.INVALID_URL?;
-    line = c.after;
-    // TODO parse url
+        if (m == data) return (HTTPMethod)i;
+    }
+    return SearchResult.MISSING?;
+}
 
-    switch
+fn void HTTPRequest.init(&req)
+{
+    *req = {};
+}
+
+fn void! HTTPRequest.free(&req, Allocator* using = mem::heap())
+{
+    req.header.free(using)!;
+}
+
+fn void! HTTPRequest.read_from(&req, Stream src, Allocator* using = mem::heap())
+{
+    char[4 * 1024] buf;
+    Scanner sc;
+    sc.init(src, buf[..]);
+
+    // Status line.
+    if (!sc.scan(' ')!) return HTTPRequestError.INVALID_METHOD?;
+    HTTPMethod! method = to_method(sc.as_str());
+    if (catch method) return HTTPRequestError.INVALID_METHOD?;
+    req.method = method;
+    if (!sc.scan(' ')!) return HTTPRequestError.INVALID_PATH?;
+    String str = sc.as_str().copy(using);
+    req.url.init(str)!;
+    if (!sc.scan('\n')!) return HTTPRequestError.INVALID_PROTO?;
+    String proto = sc.as_str();
+    switch (proto)
     {
-        case line.starts_with(HTTP10):
-            req.proto = HTTP10;
-            req.proto_major = '1';
-            req.proto_minor = '0';
-        case line.starts_with(HTTP11):
-            req.proto = HTTP11;
-            req.proto_major = '1';
-            req.proto_minor = '1';
+        case "HTTP/1.0\r":
+            req.proto = HTTPProto.HTTP1_0;
+        case "HTTP/1.1\r":
+            req.proto = HTTPProto.HTTP1_1;
         default:
             return HTTPRequestError.INVALID_PROTO?;
     }
-    line = line[req.proto.len:];
 
-    usz hn = req.header.parse(str)!;
-    req.body = hn < str.len ? str[hn:] : "";
+    // Headers.
+    req.header.scan(&sc, using)!;
+    if (!sc.scan('\n')!) return HTTPRequestError.INVALID_HEADER?;
+    if (sc.as_str() != "\r") return HTTPRequestError.INVALID_HEADER?;
+
+    // Body.
+    char[] rest = sc.bytes();
+    req.body = BodyReader{ .data = rest, .reader = src }.as_stream();
 }
+
+struct BodyReader
+{
+    char[] data;
+    Stream reader;
+}
+
+fn Stream BodyReader.as_stream(&self)
+{
+    return { .fns = &bodyreader_interface, .data = &self };
+}
+
+fn usz! BodyReader.read(&self, char[] bytes)
+{
+    usz n = min(bytes.len, self.data.len);
+    bytes[:n] = self.data[:n];
+    self.data = self.data[n..];
+    return n + self.reader.read(bytes[n..]);
+}
+
+StreamInterface bodyreader_interface = {
+    . read_fn = fn(s, char[] bytes) => ((BodyReader*)s.data).read(bytes),
+};
