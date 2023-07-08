@@ -1,4 +1,4 @@
-module stringmap<Value, N>;
+module stringmap(<Value, N>);
 import std::hash::fnv32a;
 import std::hash::fnv64a;
 import std::io;
@@ -177,7 +177,7 @@ macro @walk_packedstrings(list; @body(s, start))
     {
         if (list.data[i] != 0) continue;
         char[] s = list.data[start:i - start];
-        @body(s, start);
+        @body((String)s, start);
         start = i + 1;
     }
 }

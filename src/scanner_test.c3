@@ -3,7 +3,7 @@ import scanner;
 import std::collections::list;
 import std::io;
 
-def Results = List<String>;
+def Results = List(<String>);
 
 struct ScanTest
 {

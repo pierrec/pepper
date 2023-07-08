@@ -16,7 +16,8 @@ fault HTTPHeaderError
 }
 
 // https://www.rfc-editor.org/rfc/rfc7230.html#section-2.1
-def HTTPHeaderMap = distinct StringMap<String, 9>;
+def HTTPHeaderMap = StringMap(<String, 9>);
+
 struct HTTPHeader
 {
     HTTPHeaderMap data;
@@ -64,24 +65,28 @@ fn void! HTTPHeader.scan(&h, Scanner *sc, Allocator* using = mem::heap())
     {
         String bytes = sc.as_str();
         String name = String.tcopy(bytes);
+        // Check that the line ends with `\r\n`.
         if (!sc.scan('\n')!) return HTTPHeaderError.INVALID_HEADER?;
         bytes = sc.as_str();
         if (bytes.len < 2 || bytes[^1] != '\r') return HTTPHeaderError.INVALID_HEADER?;
-        String value = String.copy(bytes[:^1], using);
+        // Remove optional white space (OWS).
+        bytes = bytes.trim();
+        String value = String.copy(bytes, using);
         h.set(name, value)!;
     }
 }
 
-fn usz! HTTPHeader.write(&h, Stream stream)
+fn usz! HTTPHeader.write_to(&h, Stream stream)
 {
     usz n;
     h.data.@walk(; String name, String value)
     {
-        stream.write(name)!;
-        stream.write(":")!;
-        stream.write(value)!;
-        stream.write("\r\n")!;
+        n += stream.write(name)!;
+        n += stream.write(":")!;
+        n += stream.write(value)!;
+        n += stream.write("\r\n")!;
     };
+    n += stream.write("\r\n")!;
     return n;
 }
 

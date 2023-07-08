@@ -14,7 +14,7 @@ struct Scanner
  * Scanner provides a way to read delimited data (with newlines as the default).
  * @require buffer.len > 0 "Non-empty buffer required."
  **/
-fn void Scanner.init(Scanner *sc, Stream src, char[] buffer)
+fn void Scanner.init(&sc, Stream src, char[] buffer)
 {
     *sc = { .src = src, .buf = buffer };
 }
@@ -22,7 +22,7 @@ fn void Scanner.init(Scanner *sc, Stream src, char[] buffer)
 /**
  * Scan the stream for the next split character and return whether it was found.
  **/
-fn bool! Scanner.scan(Scanner *sc, char split = '\n')
+fn bool! Scanner.scan(&sc, char split = '\n')
 {
     if (sc.read_idx == 0)
     {
@@ -43,7 +43,12 @@ fn bool! Scanner.scan(Scanner *sc, char split = '\n')
         sc.split_idx = sc.read_idx + 1;
         return false;
     }
-    // Split character not found: maximize the search and try again.
+    if (sc.read_idx < sc.buf.len)
+    {
+        // Split character not found and already read as much as possible.
+        return false;
+    }
+    // Split character not found: maximize the search and try one more time.
     sc.buf[:n] = buf[..];
     sc.anchor = 0;
     sc.split_idx = 0;
@@ -52,7 +57,7 @@ fn bool! Scanner.scan(Scanner *sc, char split = '\n')
     return sc.scan(split);
 }
 
-fn bool! Scanner.refill(Scanner *sc) @private
+fn bool! Scanner.refill(&sc) @private
 {
     usz n = sc.read_idx - sc.split_idx;
     sc.buf[:n] = sc.buf[sc.split_idx:n];
@@ -77,13 +82,19 @@ fn bool! Scanner.refill(Scanner *sc) @private
  * The bytes may not be valid after the next scan.
  * At the end of a scan, the remaining bytes are returned.
  **/
-fn char[] Scanner.bytes(Scanner *sc)
+fn char[] Scanner.bytes(&sc) @inline
 {
     usz n = sc.split_idx - sc.anchor;
     return sc.buf[sc.anchor:n-1];
 }
 
-fn String Scanner.as_str(Scanner *sc)
+fn String Scanner.as_str(&sc) @inline
 {
     return (String)sc.bytes();
+}
+
+fn char[] Scanner.remaining_bytes(&sc) @inline
+{
+    usz n = sc.read_idx - sc.split_idx;
+    return sc.buf[sc.split_idx:n];
 }

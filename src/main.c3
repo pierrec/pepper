@@ -1,74 +1,59 @@
-module pepper;
-import std::collections::list;
+module http;
 import std::io;
 
-// https://www.iana.org/assignments/http-fields/http-fields.txt
-const SOURCE = "http-fields.txt";
-const OUT = "header_std.c3";
-
-def Strings = List<String>;
-
-enum State
+fn int main(String[] args)
 {
-    FIND_START,
-    EXTRACT_HEADER,
+    //do_client();
+    do_server();
+    return 0;
 }
 
-fn void main(String[] args)
+//fn void do_client()
+//{
+//    HTTPClient client;
+//    HTTPRequest req = {
+//        .method = GET,
+//        .url = { .host = "www.example.com:80", .path = "/" },
+//        .proto = HTTP1_0,
+//    };
+//    HTTPResponse resp;
+//    resp.init();
+//    client.do_request(&req, &resp)!!;
+//    //io::printn(resp.status);
+//    io::printn(resp.body);
+//}
+
+fn void do_server()
 {
-    Strings headers;
-    defer headers.free();
-    parse_headers(&headers)!!;
-    io::printfn("Found %d headers", headers.len());
-    write_headers(&headers)!!;
+    HTTPServer server;
+    server.init("localhost:8081", 1000)!!;
+    Handler h;
+    server.serve(h.as_httphandler())!!;
 }
 
-fn void! parse_headers(Strings *headers)
+struct Handler
 {
-    File f = file::open(SOURCE, "rb")!;
-    defer f.close()!!;
-    State state = State.FIND_START;
-    while LOOP: (!f.eof())
-    {
-        @pool() {
-            String line = (String)f.tgetline();
-            switch (state)
-            {
-                case State.FIND_START:
-                    if (line.contains("Field Name") && line.contains("Status"))
-                    {
-                        state = State.EXTRACT_HEADER;
-                    }
-                case State.EXTRACT_HEADER:
-                    if (line.len == 0) break LOOP;
-                    if (line.len > 1 && line[1] != ' ')
-                    {
-                        if (line[1] == '*') break;
-                        line = line.trim();
-                        if (try i = line.index_of(" "))
-                        {
-                            headers.push(line[:i].concat(""));
-                        }
-                    }
-            }
-        };
-    }
+    ByteReader buf;
 }
 
-fn void! write_headers(Strings *headers)
+fn HTTPHandler Handler.as_httphandler(&self)
 {
-    File out = file::open(OUT, "w")!;
-    defer out.close()!!;
-    out.printn("module http;")!;
-    out.printn("")!;
-    out.print("const String[] STANDARD_HEADERS = {")!;
-    foreach (i, h : headers.array_view())
-    {
-        if (i % 4 == 0) out.printn("  ")!;
-        out.print("\"")!;
-        out.print(h)!;
-        out.print("\", ")!;
-    }
-    out.printn("")!;
-    out.printn("};")!;
+    return { .fns = &httphandler_interface, .data = self };
+}
+
+HTTPHandlerInterface httphandler_interface = {
+    .handler_fn = fn(h, req, resp) => ((Handler*)h.data).handle(req, resp),
+};
+
+fn void Handler.handle(&self, HTTPRequest* req, HTTPResponse* resp)
+{
+    ByteWriter dst;
+    dst.tinit();
+    req.write_to(dst.as_stream())!!;
+    io::printfn(">>%s<<", dst.as_str());
+
+    self.buf.index = 0;
+    self.buf.bytes = "Hello world";
+    resp.status = 200;
+    resp.body = self.buf.as_stream();
 }

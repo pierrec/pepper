@@ -1,6 +1,7 @@
 module http::request;
 import std::io;
 import scanner;
+import util;
 
 const MAX_HEADER_LINE = 1024;
 
@@ -26,12 +27,11 @@ enum HTTPProto : char
 // https://www.rfc-editor.org/rfc/rfc7230.html#section-3.1.1
 struct HTTPRequest
 {
-    Allocator* allocator;
     HTTPMethod method;
     Url        url;
     HTTPProto  proto;
     HTTPHeader header;
-    Stream     body;
+    HTTPBody   body;
 }
 
 fault HTTPRequestError
@@ -41,6 +41,16 @@ fault HTTPRequestError
     INVALID_PATH,
     INVALID_PROTO,
     INVALID_HEADER,
+    INVALID_CONTENTLENGTH,
+}
+
+fn String HTTPProto.as_str(self)
+{
+    switch (self)
+    {
+        case HTTP1_0: return "HTTP/1.0";
+        case HTTP1_1: return "HTTP/1.1";
+    }
 }
 
 fn HTTPMethod! to_method(String data) @local
@@ -55,12 +65,14 @@ fn HTTPMethod! to_method(String data) @local
 fn void HTTPRequest.init(&req)
 {
     *req = {};
+    req.header.init();
 }
 
 fn void! HTTPRequest.free(&req, Allocator* using = mem::heap())
 {
     req.url.free(using)!;
     req.header.free(using)!;
+    using.free(req.body.data)!;
 }
 
 fn void! HTTPRequest.read_from(&req, Stream src, Allocator* using = mem::heap())
@@ -91,35 +103,37 @@ fn void! HTTPRequest.read_from(&req, Stream src, Allocator* using = mem::heap())
 
     // Headers.
     req.header.scan(&sc, using)!;
+    //io::printfn("headers processed");
+
     if (!sc.scan('\n')!) return HTTPRequestError.INVALID_HEADER?;
     if (sc.as_str() != "\r") return HTTPRequestError.INVALID_HEADER?;
 
     // Body.
-    String rest = sc.as_str().copy(using);
-    req.body = BodyReader{ .data = rest, .reader = src }.as_stream();
+    if (try clen = req.header.get("Content-Length"))
+    {
+        usz! limit = clen.to_uint();
+        if (catch limit) return HTTPRequestError.INVALID_CONTENTLENGTH?;
+
+        char[] remaining = sc.remaining_bytes();
+        if (limit < remaining.len) return HTTPRequestError.INVALID_CONTENTLENGTH?;
+
+        remaining = util::dup_bytes(remaining, req.body.data, using)!;
+        req.body.init(remaining, src, limit - remaining.len);
+    }
+    //io::printfn("body processed");
 }
 
-struct BodyReader
+fn usz! HTTPRequest.write_to(&req, Stream dst)
 {
-    char[] data;
-    Stream reader;
-}
+    usz written;
 
-fn Stream BodyReader.as_stream(&self)
-{
-    return { .fns = &bodyreader_interface, .data = &self };
-}
+    DString str;
+    str.tinit();
+    str.printf("%s %s %s\r\n", req.method, req.url.path, req.proto.as_str());
+    written += dst.write(str.as_str())!;
 
-fn usz! BodyReader.read(&self, char[] bytes)
-{
-    usz n = min(bytes.len, self.data.len);
-    bytes[:n] = self.data[:n];
-    self.data = self.data[n..];
-    bytes = bytes[n..];
-    if (bytes.len > 0) n += self.reader.read(bytes)!;
-    return n;
-}
+    written += req.header.write_to(dst)!;
+    //written += req.body.as_stream().copy_to(dst)!;
 
-StreamInterface bodyreader_interface = {
-    . read_fn = fn(s, char[] bytes) => ((BodyReader*)s.data).read(bytes),
-};
+    return written;
+}

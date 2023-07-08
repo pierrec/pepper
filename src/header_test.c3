@@ -4,7 +4,7 @@ import scanner;
 import std::io;
 import std::collections::list;
 
-def List = list::List<String[2]>;
+def List = list::List(<String[2]>);
 
 fn void header()
 {
@@ -46,5 +46,5 @@ fn void header_scan()
     {
         list.push({k, v});
     };
-    assert(equals(list.array_view(), String[2][]{ {"name1", "value1"}, {"name2", "value2"} }));
+    assert(equals(list.array_view(), String[2][]{ {"Name1", "value1"}, {"Name2", "value2"} }));
 }
