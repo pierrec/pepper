@@ -23,7 +23,7 @@ fn void! HTTPServer.init(&srv, String address, int backlog = 100)
 {
 	String host = address;
 	String port = "80";
-	if (try i = address.index_of(":"))
+	if (try i = address.index_of_char(':'))
 	{
 		host = address[:i];
 		port = address[i + 1..];

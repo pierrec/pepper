@@ -30,12 +30,13 @@ fn void header()
 fn void header_scan()
 {
     ByteReader br;
-    br.init("name1:value1\r\nname2:value2\r\n");
+    br.init("name1:value1\r\nname2:value2\r\n\r\n");
     char[128] buffer;
     Scanner sc;
     sc.init(br.as_stream(), buffer[..]);
 
     HTTPHeader header;
+    header.init(mem::temp());
     header.scan(&sc)!!;
     assert(header.get("name1")! == "value1");
     assert(header.get("name2")! == "value2");
