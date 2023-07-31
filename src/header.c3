@@ -1,18 +1,19 @@
-module http::header;
+module http;
 import std::ascii;
 import std::io;
-import scanner;
 import stringmap;
 
 const MAX_NAME_LEN = 32;
+const MAX_HEADERS = 256;
 
-fault HTTPHeaderError
+fault HTTPError
 {
     HEADER_FULL,
     HEADER_NAME_TOO_LONG,
     INVALID_HEADER_NAME,
     INVALID_HEADER,
     TOO_MANY_HEADERS,
+	INVALID_REQUEST,
 }
 
 // https://www.rfc-editor.org/rfc/rfc7230.html#section-2.1
@@ -23,63 +24,61 @@ struct HTTPHeader
     HTTPHeaderMap data;
 }
 
-fn void HTTPHeader.init(&h)
+fn void HTTPHeader.init(&self)
 {
-    h.data.init();
+    self.data.init();
 }
 
-fn void! HTTPHeader.free(&h, Allocator* using = mem::heap())
+fn void! HTTPHeader.free(&self, Allocator* using = mem::heap())
 {
-    h.data.@walk(; String name, String value)
+    self.data.@walk(; String name, String value)
     {
         using.free(value)!;
     };
 }
 
-fn String! HTTPHeader.get(&h, String name)
+fn String! HTTPHeader.get(&self, String name)
 {
     char[MAX_NAME_LEN] buf;
     name = canonicalize(name, buf[..])!;
-    return h.data.get(name);
+    return self.data.get(name);
 }
 
-fn void! HTTPHeader.set(&h, String name, String value)
+fn void! HTTPHeader.set(&self, String name, String value)
 {
     if (value.len == 0) return;
     char[MAX_NAME_LEN] buf;
     name = canonicalize(name, buf[..])!;
-    if (catch h.data.set(name, value)) return HTTPHeaderError.HEADER_FULL?;
+    if (catch self.data.set(name, value)) return HTTPError.HEADER_FULL?;
 }
 
-fn void! HTTPHeader.del(&h, String name)
+fn void! HTTPHeader.del(&self, String name)
 {
     char[MAX_NAME_LEN] buf;
     name = canonicalize(name, buf[..])!;
-    h.data.del(name);
+    self.data.del(name);
 }
 
 // https://www.rfc-editor.org/rfc/rfc7230.html#section-3.2.4
-fn void! HTTPHeader.scan(&h, Scanner *sc, Allocator* using = mem::heap())
+fn void! HTTPHeader.scan(&self, Scanner *sc, Allocator* using = mem::heap())
 {
-    while (sc.scan(':')!)
+    for (usz h = 0; h < MAX_HEADERS; h++)
     {
-        String bytes = sc.as_str();
-        String name = String.tcopy(bytes);
-        // Check that the line ends with `\r\n`.
-        if (!sc.scan('\n')!) return HTTPHeaderError.INVALID_HEADER?;
-        bytes = sc.as_str();
-        if (bytes.len < 2 || bytes[^1] != '\r') return HTTPHeaderError.INVALID_HEADER?;
-        // Remove optional white space (OWS).
-        bytes = bytes.trim();
-        String value = String.copy(bytes, using);
-        h.set(name, value)!;
+		char[] bytes = scan(sc, "\r\n", HTTPError.INVALID_HEADER)!;
+		if (bytes.len == 0) return;
+		usz i = index_of(bytes, ':', HTTPError.INVALID_HEADER)!;
+		String name = String.tcopy((String)bytes[:i]);
+		String value = String.copy((String)bytes[i + 1..], using);
+		self.set(name, value)!;
+		io::printfn("HEADER %s=%s", name, value);
     }
+    return HTTPError.TOO_MANY_HEADERS?;
 }
 
-fn usz! HTTPHeader.write_to(&h, Stream stream)
+fn usz! HTTPHeader.write_to(&self, Stream stream)
 {
     usz n;
-    h.data.@walk(; String name, String value)
+    self.data.@walk(; String name, String value)
     {
         n += stream.write(name)!;
         n += stream.write(":")!;
@@ -109,7 +108,7 @@ macro HTTPHeader.@walk(list; @body(name, value))
  */
 fn String! canonicalize(String s, char[] canon)
 {
-    if (s.len > canon.len) return HTTPHeaderError.HEADER_NAME_TOO_LONG?;
+    if (s.len > canon.len) return HTTPError.HEADER_NAME_TOO_LONG?;
     bool with_hyphen = true;
     foreach (i, c : s)
     {
@@ -123,9 +122,35 @@ fn String! canonicalize(String s, char[] canon)
             case string::char_in_set(c, "!#$%&'*+.^_`|~"):
                 break;
             default:
-                return HTTPHeaderError.INVALID_HEADER_NAME?;
+                return HTTPError.INVALID_HEADER_NAME?;
         }
         canon[i] = c;
     }
     return (String)canon[:s.len];
+}
+
+macro char[]! scan(sc, pattern, e)
+{
+	char[]! bytes = sc.scan(pattern);
+	if (catch err = bytes)
+	{
+		case SearchResult.MISSING:
+			return e?;
+		default:
+			return err?;
+	}
+	return bytes;
+}
+
+macro usz! index_of(bytes, c, e)
+{
+	usz! i = array::index_of(bytes, c);
+	if (catch err = i)
+	{
+		case SearchResult.MISSING:
+			return e?;
+		default:
+			return err?;
+	}
+	return i;
 }

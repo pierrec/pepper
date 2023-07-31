@@ -1,6 +1,5 @@
 module http::header_test @test;
-import http::header;
-import scanner;
+import http;
 import std::io;
 import std::collections::list;
 

@@ -116,7 +116,7 @@ fn void HashMap.del(&hm, String key)
     };
 }
 
-macro @walk_hashmap(hm, str; @body(entry, i, h))
+macro @walk_hashmap(hm, str; @body(entry, i, h)) @private
 {
     uint h32 = fnv32a::encode(str);
     assert(h32 != 0, "%s", str);

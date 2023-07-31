@@ -1,5 +1,13 @@
 module http;
 import std::io;
+import template::text;
+
+def TextTemplate = TextTemplate(<Data>);
+
+struct Data
+{
+	String user;
+}
 
 fn int main(String[] args)
 {
@@ -27,7 +35,8 @@ fn void do_server()
 {
     HTTPServer server;
     server.init("localhost:8081", 1000)!!;
-    Handler h;
+    TextHandler h;
+    h.init("hello {{user}}!")!!;
     server.serve(h.as_httphandler())!!;
 }
 
@@ -47,13 +56,33 @@ HTTPHandlerInterface httphandler_interface = {
 
 fn void Handler.handle(&self, HTTPRequest* req, HTTPResponse* resp)
 {
-    ByteWriter dst;
-    dst.tinit();
-    req.write_to(dst.as_stream())!!;
-    io::printfn(">>%s<<", dst.as_str());
-
     self.buf.index = 0;
     self.buf.bytes = "Hello world";
     resp.status = 200;
     resp.body = self.buf.as_stream();
+}
+
+struct TextHandler
+{
+	TextTemplate template;
+}
+
+fn void! TextHandler.init(&self, String template)
+{
+	self.template.init(template, { "Joe" })!;
+}
+
+fn HTTPHandler TextHandler.as_httphandler(&self)
+{
+    return { .fns = &texthandler_interface, .data = self };
+}
+
+HTTPHandlerInterface texthandler_interface = {
+    .handler_fn = fn(h, req, resp) => ((TextHandler*)h.data).handle(req, resp),
+};
+
+fn void TextHandler.handle(&self, HTTPRequest* req, HTTPResponse* resp)
+{
+    resp.status = 200;
+	resp.body = self.template.as_stream();
 }

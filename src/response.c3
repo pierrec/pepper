@@ -45,7 +45,7 @@ fn usz! HTTPResponse.write_to(&resp, Stream dst)
 
     DString status;
     status.tinit();
-    status.printf("%s %d %s\r\n", resp.proto.as_str(), resp.status, resp.status);
+    status.printf("%s %d %s\r\n", resp.proto.name, resp.status, resp.status);
     written += dst.write(status.as_str())!;
 
     written += resp.header.write_to(dst)!;
