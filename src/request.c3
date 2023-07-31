@@ -43,20 +43,20 @@ fault HTTPRequestError
     INVALID_CONTENTLENGTH,
 }
 
-fn void HTTPRequest.init(&req)
+fn void HTTPRequest.init(&self, Allocator* allocator)
 {
-    *req = {};
-    req.header.init();
+    *self = {};
+    self.header.init(allocator);
 }
 
-fn void! HTTPRequest.free(&req, Allocator* using = mem::heap())
+fn void! HTTPRequest.free(&self)
 {
-//    req.url.free(using)!;
-//    req.header.free(using)!;
-//    using.free(req.body.data)!;
+//    self.url.free(using)!;
+//    self.header.free(using)!;
+//    using.free(self.body.data)!;
 }
 
-fn void! HTTPRequest.read_from(&req, Stream src, Allocator* using = mem::heap())
+fn void! HTTPRequest.read_from(&self, Stream src)
 {
     char[MAX_HEADER_LINE] buf;
     Scanner sc;
@@ -70,38 +70,43 @@ fn void! HTTPRequest.read_from(&req, Stream src, Allocator* using = mem::heap())
 
     line = line[i + 1..];
 	i = index_of(line, ' ', HTTPError.INVALID_REQUEST)!;
-    req.url.init((String)line[:i])!;
+    self.url.init((String)line[:i])!;
 
     line = line[i + 1..];
-	req.proto = match_enum(HTTPProto, line)!;
+	self.proto = match_enum(HTTPProto, line)!;
 
     // Headers.
-    req.header.scan(&sc, using)!;
+    self.header.scan(&sc)!;
 
     // Body.
-    if (try clen = req.header.get("Content-Length"))
+    usz limit;
+    char[] remaining = sc.flush();
+    if (try clen = self.header.get("Content-Length"))
     {
-        usz! limit = clen.to_uint();
-        if (catch limit) return HTTPRequestError.INVALID_CONTENTLENGTH?;
-
-        char[] remaining = sc.flush();
-        if (limit < remaining.len) return HTTPRequestError.INVALID_CONTENTLENGTH?;
-
-        remaining = util::dup_bytes(remaining, req.body.data, using)!;
-        req.body.init(remaining, src, limit - remaining.len);
+        usz! l = clen.to_uint();
+        if (catch l) return HTTPRequestError.INVALID_CONTENTLENGTH?;
+        limit = l;
+		if (limit < remaining.len) return HTTPRequestError.INVALID_CONTENTLENGTH?;
+        limit -= remaining.len;
+        remaining = util::dup_bytes(remaining, self.body.data, self.header.allocator)!;
     }
+    else
+    {
+		if (remaining.len > 0) return HTTPRequestError.INVALID_CONTENTLENGTH?;
+    }
+	self.body.init(remaining, src, limit);
 }
 
-fn usz! HTTPRequest.write_to(&req, Stream dst)
+fn usz! HTTPRequest.write_to(&self, Stream dst)
 {
     usz written;
 
     DString str;
     str.tinit();
-    str.printf("%s %s %s\r\n", req.method, req.url.path, req.proto.name);
+    str.printf("%s %s %s\r\n", self.method, self.url.path, self.proto.name);
     written += dst.write(str.as_str())!;
 
-    written += req.header.write_to(dst)!;
+    written += self.header.write_to(dst)!;
     //written += req.body.as_stream().copy_to(dst)!;
 
     return written;

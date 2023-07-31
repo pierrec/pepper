@@ -11,9 +11,9 @@ struct Data
 
 fn int main(String[] args)
 {
-    //do_client();
-    do_server();
-    return 0;
+	//do_client();
+	do_server();
+return 0;
 }
 
 //fn void do_client()
@@ -33,33 +33,33 @@ fn int main(String[] args)
 
 fn void do_server()
 {
-    HTTPServer server;
-    server.init("localhost:8081", 1000)!!;
-    TextHandler h;
-    h.init("hello {{user}}!")!!;
-    server.serve(h.as_httphandler())!!;
+	HTTPServer server;
+	server.init("localhost:8081", 1000)!!;
+	TextHandler h;
+	h.init("hello {{user}}!")!!;
+	server.serve(h.as_httphandler())!!;
 }
 
 struct Handler
 {
-    ByteReader buf;
+	ByteReader buf;
 }
 
 fn HTTPHandler Handler.as_httphandler(&self)
 {
-    return { .fns = &httphandler_interface, .data = self };
+	return { .fns = &httphandler_interface, .data = self };
 }
 
 HTTPHandlerInterface httphandler_interface = {
-    .handler_fn = fn(h, req, resp) => ((Handler*)h.data).handle(req, resp),
+	.handler_fn = fn(h, req, resp) => ((Handler*)h.data).handle(req, resp),
 };
 
 fn void Handler.handle(&self, HTTPRequest* req, HTTPResponse* resp)
 {
-    self.buf.index = 0;
-    self.buf.bytes = "Hello world";
-    resp.status = 200;
-    resp.body = self.buf.as_stream();
+	self.buf.index = 0;
+	self.buf.bytes = "Hello world";
+	resp.status = 200;
+	resp.body = self.buf.as_stream();
 }
 
 struct TextHandler
@@ -74,15 +74,15 @@ fn void! TextHandler.init(&self, String template)
 
 fn HTTPHandler TextHandler.as_httphandler(&self)
 {
-    return { .fns = &texthandler_interface, .data = self };
+	return { .fns = &texthandler_interface, .data = self };
 }
 
 HTTPHandlerInterface texthandler_interface = {
-    .handler_fn = fn(h, req, resp) => ((TextHandler*)h.data).handle(req, resp),
+	.handler_fn = fn(h, req, resp) => ((TextHandler*)h.data).handle(req, resp),
 };
 
 fn void TextHandler.handle(&self, HTTPRequest* req, HTTPResponse* resp)
 {
-    resp.status = 200;
+	resp.status = 200;
 	resp.body = self.template.as_stream();
 }
