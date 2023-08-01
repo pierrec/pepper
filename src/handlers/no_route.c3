@@ -25,8 +25,7 @@ struct HTTPHandlerNoRoute
 
 fn void HTTPHandlerNoRoute.init(&self, String template = "<h1>{{status}}</h1><h2>{{status_message}}</h2>")
 {
-	HTTPStatusCode code = 404;
-	self.template.init(template, { "404", code.as_str() })!!;
+	self.template.init(template, {})!!;
 }
 
 fn HTTPHandler HTTPHandlerNoRoute.as_httphandler(&self)
@@ -40,6 +39,7 @@ HTTPHandlerInterface httpnoroute_interface = {
 
 fn void! HTTPHandlerNoRoute.handle(&self, HTTPRequest* req, HTTPResponse* resp)
 {
-	resp.status = 404;
+
+	self.template.data = { resp.status.as_str(), resp.status.as_message() };
 	resp.body = self.template.as_stream();
 }

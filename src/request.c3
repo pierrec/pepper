@@ -41,7 +41,7 @@ fn void! HTTPRequest.read_from(&self, Stream src)
 		io::printfn("REQUEST line=%s", line);
 	$endif
 	usz i = index_of(line, ' ', HTTPError.INVALID_REQUEST)!;
-    HTTPMethod method = match_enum(HTTPMethod, line[:i])!;
+    self.method = match_enum(HTTPMethod, line[:i])!;
 
     line = line[i + 1..];
 	i = index_of(line, ' ', HTTPError.INVALID_REQUEST)!;

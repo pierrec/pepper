@@ -70,11 +70,20 @@ HTTPHandlerInterface httprouter_interface = {
 
 fn void! HTTPRouter.handle(&self, HTTPRequest* req, HTTPResponse* resp)
 {
-	HTTPRouteList routes = self.routes.get(req.method);
 	String path = req.url.path;
 	$if HTTP_ROUTER_LOG:
 		io::printfn("incoming request method=%s route=%s", req.method, path);
 	$endif
+	HTTPRouteList routes = self.routes.get(req.method);
+	$if HTTP_ROUTER_LOG:
+		io::printfn("found %d potential routes for method %s", routes.len(), req.method);
+	$endif
+	if (routes.len() == 0)
+	{
+		resp.status = 405;
+		self.no_route.handle(req, resp)!;
+		return;
+	}
 	// TODO speed up the lookup
 	foreach (r : routes)
 	{
@@ -88,5 +97,6 @@ fn void! HTTPRouter.handle(&self, HTTPRequest* req, HTTPResponse* resp)
 	$if HTTP_ROUTER_LOG:
 		io::printfn("%s: no route", path);
 	$endif
+	resp.status = 404;
 	self.no_route.handle(req, resp)!;
 }
