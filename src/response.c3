@@ -120,6 +120,7 @@ fn usz! HTTPResponse.write_to(&self, Stream dst)
 {
 	if (!self.status.is_valid()) return HTTPResponseError.INVALID_STATUS?;
 
+	// NB. header names must be canonical as otherwise it is canonicalized in place.
 	self.header.set("Connection", "close")!;
 
 	usz written;

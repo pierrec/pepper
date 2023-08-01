@@ -1,15 +1,13 @@
 module http;
-import std::ascii;
+import std::hash::fnv64a;
 import std::io;
-import stringmap;
 
-const MAX_NAME_LEN = 32;
+// MAX_HEADERS is the maximum number of headers that can be parsed in a request.
+// This is an arbitrary value only there to prevent DOS attacks.
 const MAX_HEADERS = 256;
 
 fault HTTPError
 {
-	HEADER_FULL,
-	HEADER_NAME_TOO_LONG,
 	INVALID_HEADER_NAME,
 	INVALID_HEADER,
 	TOO_MANY_HEADERS,
@@ -17,7 +15,6 @@ fault HTTPError
 }
 
 // https://www.rfc-editor.org/rfc/rfc7230.html#section-2.1
-def HTTPHeaderMap = StringMap(<String, 9>);
 
 struct HTTPHeader
 {
@@ -33,23 +30,20 @@ fn void HTTPHeader.init(&self, Allocator* allocator)
 
 fn String! HTTPHeader.get(&self, String name)
 {
-	char[MAX_NAME_LEN] buf;
-	name = canonicalize(name, buf[..])!;
+	canonicalize(name)!;
 	return self.data.get(name);
 }
 
 fn void! HTTPHeader.set(&self, String name, String value)
 {
 	if (value.len == 0) return;
-	char[MAX_NAME_LEN] buf;
-	name = canonicalize(name, buf[..])!;
-	if (catch self.data.set(name, value)) return HTTPError.HEADER_FULL?;
+	canonicalize(name)!;
+	self.data.set(name, value);
 }
 
 fn void! HTTPHeader.del(&self, String name)
 {
-	char[MAX_NAME_LEN] buf;
-	name = canonicalize(name, buf[..])!;
+	canonicalize(name)!;
 	self.data.del(name);
 }
 
@@ -72,7 +66,7 @@ fn void! HTTPHeader.scan(&self, Scanner *sc)
 fn usz! HTTPHeader.write_to(&self, Stream stream)
 {
 	usz n;
-	self.data.@walk(; String name, String value)
+	self.data.@each(; String name, String value)
 	{
 		n += stream.write(name)!;
 		n += stream.write(":")!;
@@ -83,9 +77,9 @@ fn usz! HTTPHeader.write_to(&self, Stream stream)
 	return n;
 }
 
-macro HTTPHeader.@walk(list; @body(name, value))
+macro HTTPHeader.@each(list; @body(name, value))
 {
-	list.data.@walk(; String name, String value)
+	list.data.@each(; String name, String value)
 	{
 		@body(name, value);
 	};
@@ -100,27 +94,31 @@ macro HTTPHeader.@walk(list; @body(name, value))
  * Canonicalization converts the input as follow:
  * accept-encodING => Accept-Encoding
  */
-fn String! canonicalize(String s, char[] canon)
+fn void! canonicalize(String s)
 {
-	if (s.len > canon.len) return HTTPError.HEADER_NAME_TOO_LONG?;
 	bool with_hyphen = true;
-	foreach (i, c : s)
+	foreach (i, &c : s)
 	{
 		switch
 		{
-			case ascii::is_alnum(c):
-				c = with_hyphen ? ascii::to_upper(c) : ascii::to_lower(c);
+			case c.is_alnum():
+				if (with_hyphen && c.is_lower())
+				{
+					*c = c.to_upper();
+				}
+				else if (!with_hyphen && c.is_upper())
+				{
+					*c = c.to_lower();
+				}
 				with_hyphen = false;
-			case c == '-':
+			case *c == '-':
 				with_hyphen = true;
-			case string::char_in_set(c, "!#$%&'*+.^_`|~"):
+			case string::char_in_set(*c, "!#$%&'*+.^_`|~"):
 				break;
 			default:
 				return HTTPError.INVALID_HEADER_NAME?;
 		}
-		canon[i] = c;
 	}
-	return (String)canon[:s.len];
 }
 
 macro char[]! scan(sc, pattern, e)
@@ -147,4 +145,110 @@ macro usz! index_of(bytes, c, e)
 			return err?;
 	}
 	return i;
+}
+
+// Hash map definition.
+
+const N = 9; // 256 * 2
+const MASK = (1 << N) - 1;
+
+$assert MAX_HEADERS * 2 <= ushort.max;
+
+struct HTTPHeaderMap
+{
+    Entry[MAX_HEADERS * 2] data;
+    ushort[MAX_HEADERS] keys;
+    ushort len;
+}
+
+struct Entry
+{
+    String key;
+    String value;
+}
+
+fn void HTTPHeaderMap.init(&self)
+{
+    *self = {};
+}
+
+fn bool HTTPHeaderMap.has(&self, String key)
+{
+    self.@walk(key; Entry e, ushort i)
+    {
+        if (e.key == key) return true;
+        if (e.key == "") return false;
+    };
+}
+
+fn String! HTTPHeaderMap.get(&self, String key)
+{
+    self.@walk(key; Entry e, ushort i)
+    {
+        if (e.key == key) return e.value;
+        if (e.key == "") return SearchResult.MISSING?;
+    };
+}
+
+fn bool HTTPHeaderMap.set(&self, String key, String value)
+{
+    self.@walk(key; Entry e, ushort i)
+    {
+        if (e.key == "")
+        {
+            self.data[i] = { .key = key, .value = value };
+            self.keys[self.len] = i;
+            self.len++;
+            return true;
+        }
+        if (e.key == key)
+        {
+            self.data[i].value = value;
+            return false;
+        }
+    };
+}
+
+fn void HTTPHeaderMap.del(&self, String key)
+{
+    self.@walk(key; Entry e, ushort i)
+    {
+        if (e.key == key)
+        {
+            self.data[i] = {};
+            foreach (j, k : self.keys[:self.len])
+            {
+            	if (k == i)
+            	{
+            		self.keys[j] = self.keys[self.len - 1];
+            		break;
+            	}
+            }
+            self.len--;
+            return;
+        }
+        if (e.key == "") return;
+    };
+}
+
+macro HTTPHeaderMap.@walk(self, str; @body(entry, i)) @private
+{
+    ulong h = fnv64a::encode(str);
+    ushort step = (ushort)(h >> (64 - N)) | 1;
+    ushort i = (ushort)h & MASK;
+    while (true)
+    {
+        Entry entry = self.data[i];
+        @body(entry, i);
+        i = (i + step) & MASK;
+    }
+}
+
+macro HTTPHeaderMap.@each(self; @body(key, value)) @private
+{
+	foreach (k : self.keys[:self.len])
+	{
+		Entry e = self.data[k];
+		@body(e.key, e.value);
+	}
 }

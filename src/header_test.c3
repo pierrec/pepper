@@ -18,8 +18,8 @@ fn void header()
     HTTPHeader header;
     foreach (tc : tcases)
     {
-        String name = tc[0];
-        String value = tc[1];
+        String name = tc[0].tcopy();
+        String value = tc[1].tcopy();
         if (try v = header.get(name)) assert(false, "header %s should not exist", name);
         header.set(name, value)!!;
         String v = header.get(name)!!;
@@ -27,7 +27,7 @@ fn void header()
     }
 }
 
-fn void header_scan()
+fn void! header_scan()
 {
     ByteReader br;
     br.init("name1:value1\r\nname2:value2\r\n\r\n");
@@ -37,12 +37,12 @@ fn void header_scan()
 
     HTTPHeader header;
     header.init(mem::temp());
-    header.scan(&sc)!!;
-    assert(header.get("name1")! == "value1");
-    assert(header.get("name2")! == "value2");
+    header.scan(&sc)!;
+    assert(header.get("name1".tcopy())! == "value1");
+    assert(header.get("name2".tcopy())! == "value2");
 
     List list;
-    header.@walk(; String k, String v)
+    header.@each(; String k, String v)
     {
         list.push({k, v});
     };
