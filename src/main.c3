@@ -39,7 +39,7 @@ fn void do_server()
 	h.init("hello {{user}}", { "Joe" })!!;
 
 	HTTPRouter r;
-	r.init({}, { .route = { "/doc", h.as_httphandler() } })!!;
+	r.init({}, { GET, "/doc", h.as_httphandler() })!!;
 
 	server.serve(r.as_httphandler())!!;
 }

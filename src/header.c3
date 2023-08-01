@@ -1,12 +1,15 @@
 module http;
-import std::hash::fnv64a;
+import http::stringmap;
 import std::io;
 
 // MAX_HEADERS is the maximum number of headers that can be parsed in a request.
 // This is an arbitrary value only there to prevent DOS attacks.
 const MAX_HEADERS = 256;
+$assert MAX_HEADERS * 2 <= ushort.max;
 
 // https://www.rfc-editor.org/rfc/rfc7230.html#section-2.1
+
+def HTTPHeaderMap = Map(<8>);
 
 struct HTTPHeader
 {
@@ -139,110 +142,4 @@ macro usz! index_of(bytes, c, e)
 			return err?;
 	}
 	return i;
-}
-
-// Hash map definition.
-
-const N = 9; // 256 * 2
-const MASK = (1 << N) - 1;
-
-$assert MAX_HEADERS * 2 <= ushort.max;
-
-struct HTTPHeaderMap
-{
-    Entry[MAX_HEADERS * 2] data;
-    ushort[MAX_HEADERS] keys;
-    ushort len;
-}
-
-struct Entry
-{
-    String key;
-    String value;
-}
-
-fn void HTTPHeaderMap.init(&self)
-{
-    *self = {};
-}
-
-fn bool HTTPHeaderMap.has(&self, String key)
-{
-    self.@walk(key; Entry e, ushort i)
-    {
-        if (e.key == key) return true;
-        if (e.key == "") return false;
-    };
-}
-
-fn String! HTTPHeaderMap.get(&self, String key)
-{
-    self.@walk(key; Entry e, ushort i)
-    {
-        if (e.key == key) return e.value;
-        if (e.key == "") return SearchResult.MISSING?;
-    };
-}
-
-fn bool HTTPHeaderMap.set(&self, String key, String value)
-{
-    self.@walk(key; Entry e, ushort i)
-    {
-        if (e.key == "")
-        {
-            self.data[i] = { .key = key, .value = value };
-            self.keys[self.len] = i;
-            self.len++;
-            return true;
-        }
-        if (e.key == key)
-        {
-            self.data[i].value = value;
-            return false;
-        }
-    };
-}
-
-fn void HTTPHeaderMap.del(&self, String key)
-{
-    self.@walk(key; Entry e, ushort i)
-    {
-        if (e.key == key)
-        {
-            self.data[i] = {};
-            foreach (j, k : self.keys[:self.len])
-            {
-            	if (k == i)
-            	{
-            		self.keys[j] = self.keys[self.len - 1];
-            		break;
-            	}
-            }
-            self.len--;
-            return;
-        }
-        if (e.key == "") return;
-    };
-}
-
-macro HTTPHeaderMap.@walk(self, str; @body(entry, i)) @private
-{
-    ulong h = fnv64a::encode(str);
-    ushort step = (ushort)(h >> (64 - N)) | 1;
-    ushort i = (ushort)h & MASK;
-    while (true)
-    {
-        Entry entry = self.data[i];
-        @body(entry, i);
-        i = (i + step) & MASK;
-    }
-}
-
-macro HTTPHeaderMap.@each(self; @body(key, value)) @private
-{
-	foreach (k : self.keys[:self.len])
-	{
-		Entry e = self.data[k];
-		@body(e.key, e.value);
-	}
 }

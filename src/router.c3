@@ -4,11 +4,13 @@ import std::sort;
 import std::collections::enummap;
 import std::collections::list;
 import http::handlers;
+import http::stringmap;
 
 const HTTP_ROUTER_LOG = false;
 
-def HTTPRouteList = List(<HTTPRoute>);
+def HTTPRouteList = List(<HTTPRouteInternal>);
 def HTTPRouteMap = EnumMap(<HTTPMethod, HTTPRouteList>);
+def HTTPRouteStringMap = Map(<4>);
 
 struct HTTPRouter
 {
@@ -16,41 +18,43 @@ struct HTTPRouter
 	HTTPHandler no_route;
 }
 
-struct HTTPRouteMethod
-{
-	inline HTTPRoute route;
-	HTTPMethod method;
-}
-
 struct HTTPRoute
 {
+	HTTPMethod method;
 	String route;
 	HTTPHandler handler;
 }
 
-fn bool HTTPRouteMethod.less(r1, HTTPRouteMethod r2)
+struct HTTPRouteInternal @private
+{
+	String route;
+	HTTPHandler handler;
+	HTTPRouteStringMap values;
+}
+
+fn bool HTTPRoute.less(r1, HTTPRoute r2)
 {
 	// NB. routes need to be sorted in descending order to match longest ones first.
-	return !(r1.method < r2.method || (r1.method == r2.method && sort::cmp(r1.route.route, r2.route.route) < 0));
+	return !(r1.method < r2.method || (r1.method == r2.method && builtin::cmp(r1.route, r2.route) < 0));
 }
 
 /**
  * @require routes.len > 0
  **/
-fn void! HTTPRouter.init(&self, HTTPHandler no_route, HTTPRouteMethod ...routes)
+fn void! HTTPRouter.init(&self, HTTPHandler no_route, HTTPRoute ...routes)
 {
 	quicksort(routes);
 	HTTPRouteMap map;
 	map.init({});
 	foreach (i, r : routes)
 	{
-		if (r.route.route == "") return HTTPError.INVALID_ROUTE?;
-		if (i > 0 && r.route.route == routes[i - 1].route.route) return HTTPError.DUPLICATE_ROUTE?;
+		if (r.route == "") return HTTPError.INVALID_ROUTE?;
+		if (i > 0 && r.route == routes[i - 1].route) return HTTPError.DUPLICATE_ROUTE?;
 		$if HTTP_ROUTER_LOG:
-			io::printfn("ROUTER init method=%s route=%s", r.method, r.route.route);
+			io::printfn("ROUTER init method=%s route=%s", r.method, r.route);
 		$endif
 		HTTPRouteList* list = map.get_ref(r.method);
-		list.push(r.route);
+		list.push({ .route = r.route, .handler = r.handler });
 	}
 	if (!no_route.data)
 	{
