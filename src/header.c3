@@ -31,14 +31,6 @@ fn void HTTPHeader.init(&self, Allocator* allocator)
 	self.data.init();
 }
 
-fn void! HTTPHeader.free(&self)
-{
-	self.data.@walk(; String name, String value)
-	{
-		self.allocator.free(value)!;
-	};
-}
-
 fn String! HTTPHeader.get(&self, String name)
 {
 	char[MAX_NAME_LEN] buf;
@@ -69,10 +61,10 @@ fn void! HTTPHeader.scan(&self, Scanner *sc)
 		char[] bytes = scan(sc, "\r\n", HTTPError.INVALID_HEADER)!;
 		if (bytes.len == 0) return;
 		usz i = index_of(bytes, ':', HTTPError.INVALID_HEADER)!;
-		String name = String.tcopy((String)bytes[:i]);
-		String value = String.copy((String)bytes[i + 1..], self.allocator);
+		String name = ((String)bytes[:i]).copy(self.allocator);
+		String value = ((String)bytes[i + 1..]).copy(self.allocator);
 		self.set(name, value)!;
-		io::printfn("HEADER %s=%s", name, value);
+		//io::printfn("HEADER %s=%s", name, value);
 	}
 	return HTTPError.TOO_MANY_HEADERS?;
 }

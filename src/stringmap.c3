@@ -61,62 +61,62 @@ struct Entry
     Value value;
 }
 
-fn void HashMap.init(&hm)
+fn void HashMap.init(&self)
 {
-    *hm = {};
+    *self = {};
 }
 
-fn bool HashMap.has(&hm, String str)
+fn bool HashMap.has(&self, String str)
 {
-    @walk_hashmap(hm, str; Entry e, ulong i, uint h)
+    self.@walk(str; Entry e, ulong i, uint h)
     {
         if (e.hash == h) return true;
         if (e.hash == 0) return false;
     };
 }
 
-fn Value! HashMap.get(&hm, String key)
+fn Value! HashMap.get(&self, String key)
 {
-    @walk_hashmap(hm, key; Entry e, ulong i, uint h)
+    self.@walk(key; Entry e, ulong i, uint h)
     {
         if (e.hash == h) return e.value;
         if (e.hash == 0) return SearchResult.MISSING?;
     };
 }
 
-fn bool HashMap.set(&hm, String key, Value value)
+fn bool HashMap.set(&self, String key, Value value)
 {
-    @walk_hashmap(hm, key; Entry e, ulong i, uint h)
+    self.@walk(key; Entry e, ulong i, uint h)
     {
         if (e.hash == 0)
         {
-            hm.data[i] = { .hash = h, .value = value };
-            hm.len++;
+            self.data[i] = { .hash = h, .value = value };
+            self.len++;
             return true;
         }
         if (e.hash == h)
         {
-            hm.data[i].value = value;
+            self.data[i].value = value;
             return false;
         }
     };
 }
 
-fn void HashMap.del(&hm, String key)
+fn void HashMap.del(&self, String key)
 {
-    @walk_hashmap(hm, key; Entry e, ulong i, uint h)
+    self.@walk(key; Entry e, ulong i, uint h)
     {
         if (e.hash == h)
         {
-            hm.data[i] = {};
-            hm.len--;
+            self.data[i] = {};
+            self.len--;
             return;
         }
         if (e.hash == 0) return;
     };
 }
 
-macro @walk_hashmap(hm, str; @body(entry, i, h)) @private
+macro HashMap.@walk(self, str; @body(entry, i, h)) @private
 {
     uint h32 = fnv32a::encode(str);
     assert(h32 != 0, "%s", str);
@@ -125,7 +125,7 @@ macro @walk_hashmap(hm, str; @body(entry, i, h)) @private
     ulong i = h & MASK;
     while (true)
     {
-        Entry entry = hm.data[i];
+        Entry entry = self.data[i];
         @body(entry, i, h32);
         i = (i + step) & MASK;
     }

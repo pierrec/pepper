@@ -116,17 +116,10 @@ fn void HTTPResponse.init(&self, Allocator* allocator)
 	self.header.init(allocator);
 }
 
-fn void! HTTPResponse.free(&self)
-{
-	self.header.del("Connection")!!;
-	self.header.free()!;
-}
-
 fn usz! HTTPResponse.write_to(&self, Stream dst)
 {
 	if (!self.status.is_valid()) return HTTPResponseError.INVALID_STATUS?;
 
-	// NB. remove the here-added headers in free().
 	self.header.set("Connection", "close")!;
 
 	usz written;

@@ -1,6 +1,5 @@
 module http;
 import std::io;
-import util;
 
 const MAX_HEADER_LINE = 1024;
 
@@ -26,6 +25,7 @@ enum HTTPProto : char (String name)
 // https://www.rfc-editor.org/rfc/rfc7230.html#section-3.1.1
 struct HTTPRequest
 {
+    char[MAX_HEADER_LINE] buf;
     HTTPMethod method;
     Url        url;
     HTTPProto  proto;
@@ -49,18 +49,10 @@ fn void HTTPRequest.init(&self, Allocator* allocator)
     self.header.init(allocator);
 }
 
-fn void! HTTPRequest.free(&self)
-{
-//    self.url.free(using)!;
-//    self.header.free(using)!;
-//    using.free(self.body.data)!;
-}
-
 fn void! HTTPRequest.read_from(&self, Stream src)
 {
-    char[MAX_HEADER_LINE] buf;
     Scanner sc;
-    sc.init(src, buf[..]);
+    sc.init(src, self.buf[..]);
 
     // Status line.
     char[] line = scan(&sc, "\r\n", HTTPError.INVALID_REQUEST)!;
@@ -70,7 +62,8 @@ fn void! HTTPRequest.read_from(&self, Stream src)
 
     line = line[i + 1..];
 	i = index_of(line, ' ', HTTPError.INVALID_REQUEST)!;
-    self.url.init((String)line[:i])!;
+	String raw_url = ((String)line[:i]).copy(self.header.allocator);
+	self.url.init(raw_url)!;
 
     line = line[i + 1..];
 	self.proto = match_enum(HTTPProto, line)!;
@@ -88,7 +81,7 @@ fn void! HTTPRequest.read_from(&self, Stream src)
         limit = l;
 		if (limit < remaining.len) return HTTPRequestError.INVALID_CONTENTLENGTH?;
         limit -= remaining.len;
-        remaining = util::dup_bytes(remaining, self.body.data, self.header.allocator)!;
+        // No need to copy remaining as the scanner is no longer in use.
     }
     else
     {
@@ -107,7 +100,7 @@ fn usz! HTTPRequest.write_to(&self, Stream dst)
     written += dst.write(str.as_str())!;
 
     written += self.header.write_to(dst)!;
-    //written += req.body.as_stream().copy_to(dst)!;
+    written += self.body.as_stream().copy_to(dst)!;
 
     return written;
 }
