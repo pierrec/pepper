@@ -52,6 +52,7 @@ fn void! Url.init(&self, String data, bool path_only = false)
         self.path = decode(data[path_index..]);
         data = data[:path_index];
     }
+    if (self.path == "") self.path = "/";
     if (!path_only)
     {
         if (try auth_index = data.index_of_char('@'))

@@ -6,14 +6,6 @@ import std::io;
 // This is an arbitrary value only there to prevent DOS attacks.
 const MAX_HEADERS = 256;
 
-fault HTTPError
-{
-	INVALID_HEADER_NAME,
-	INVALID_HEADER,
-	TOO_MANY_HEADERS,
-	INVALID_REQUEST,
-}
-
 // https://www.rfc-editor.org/rfc/rfc7230.html#section-2.1
 
 struct HTTPHeader

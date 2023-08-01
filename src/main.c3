@@ -1,8 +1,8 @@
 module http;
 import std::io;
-import template::text;
+import http::handlers::texttemplate;
 
-def TextTemplate = TextTemplate(<Data>);
+def Handler = TextTemplateHandler(<Data>);
 
 struct Data
 {
@@ -35,54 +35,11 @@ fn void do_server()
 {
 	HTTPServer server;
 	server.init("localhost:8081", 1000)!!;
-	TextHandler h;
-	h.init("hello {{user}}!")!!;
-	server.serve(h.as_httphandler())!!;
-}
+	Handler h;
+	h.init("hello {{user}}", { "Joe" })!!;
 
-struct Handler
-{
-	ByteReader buf;
-}
+	HTTPRouter r;
+	r.init({}, { .route = { "/doc", h.as_httphandler() } })!!;
 
-fn HTTPHandler Handler.as_httphandler(&self)
-{
-	return { .fns = &httphandler_interface, .data = self };
-}
-
-HTTPHandlerInterface httphandler_interface = {
-	.handler_fn = fn(h, req, resp) => ((Handler*)h.data).handle(req, resp),
-};
-
-fn void Handler.handle(&self, HTTPRequest* req, HTTPResponse* resp)
-{
-	self.buf.index = 0;
-	self.buf.bytes = "Hello world";
-	resp.status = 200;
-	resp.body = self.buf.as_stream();
-}
-
-struct TextHandler
-{
-	TextTemplate template;
-}
-
-fn void! TextHandler.init(&self, String template)
-{
-	self.template.init(template, { "Joe" })!;
-}
-
-fn HTTPHandler TextHandler.as_httphandler(&self)
-{
-	return { .fns = &texthandler_interface, .data = self };
-}
-
-HTTPHandlerInterface texthandler_interface = {
-	.handler_fn = fn(h, req, resp) => ((TextHandler*)h.data).handle(req, resp),
-};
-
-fn void TextHandler.handle(&self, HTTPRequest* req, HTTPResponse* resp)
-{
-	resp.status = 200;
-	resp.body = self.template.as_stream();
+	server.serve(r.as_httphandler())!!;
 }

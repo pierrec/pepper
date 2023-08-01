@@ -9,18 +9,6 @@ struct HTTPServer
 	Listener listener;
 }
 
-def HTTPHandlerFn = fn void (HTTPHandler, HTTPRequest *req, HTTPResponse *resp);
-struct HTTPHandlerInterface
-{
-	HTTPHandlerFn handler_fn;
-}
-
-struct HTTPHandler
-{
-	HTTPHandlerInterface *fns;
-	void* data;
-}
-
 fn void! HTTPServer.init(&srv, String address, int backlog = 100)
 {
 	String host = address;
@@ -41,7 +29,9 @@ fn void! HTTPServer.serve(&srv, HTTPHandler handler, SocketOption... options)
 	while (true)
 	{
 		Socket client_sock = srv.listener.accept()!;
-		if (catch err = serve_client(client_sock, options, handler)) io::printfn("serve error: %s", err);
+		if (catch err = serve_client(client_sock, options, handler))
+		{
+		}
 	}
 }
 
@@ -61,6 +51,10 @@ fn void! serve_client(Socket sock, SocketOption[] options, HTTPHandler handler)
 	HTTPResponse resp;
 	resp.init(&arena);
 
-	if (HTTPHandlerFn func = handler.fns.handler_fn) func(handler, &req, &resp);
+	if (catch err = handler.handle(&req, &resp))
+	{
+		io::printfn("[%s] %s %s", req.method, req.url.path, err);
+		return;
+	}
 	resp.write_to(sock.as_stream())!;
 }

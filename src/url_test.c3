@@ -15,7 +15,7 @@ fn void! url_init()
     	{"/", { .raw = "/", .path = "/" }},
     	{"http://www.example.com", {
     		.raw = "http://www.example.com",
-    		.scheme = "http", .host = "www.example.com",
+    		.scheme = "http", .host = "www.example.com", .path = "/"
     	}},
     	{"http://www.example.com/foo", {
 			.raw = "http://www.example.com/foo",
@@ -35,15 +35,15 @@ fn void! url_init()
 		}},
 		{"http://root@www.example.com", {
 			.raw = "http://root@www.example.com",
-			.scheme = "http", .host = "www.example.com", .user = "root",
+			.scheme = "http", .host = "www.example.com", .user = "root", .path = "/"
 		}},
 		{"http://root:@www.example.com", {
 			.raw = "http://root:@www.example.com",
-			.scheme = "http", .host = "www.example.com", .user = "root",
+			.scheme = "http", .host = "www.example.com", .user = "root", .path = "/"
 		}},
 		{"http://root:pass123@www.example.com", {
 			.raw = "http://root:pass123@www.example.com",
-			.scheme = "http", .host = "www.example.com", .user = "root", .password = "pass123",
+			.scheme = "http", .host = "www.example.com", .user = "root", .password = "pass123", .path = "/"
 		}},
     };
     foreach (tc : tcases)

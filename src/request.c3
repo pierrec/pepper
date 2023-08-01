@@ -3,25 +3,6 @@ import std::io;
 
 const MAX_HEADER_LINE = 1024;
 
-enum HTTPMethod : char
-{
-    GET,
-    HEAD,
-    POST,
-    PUT,
-    DELETE,
-    CONNECT,
-    OPTIONS,
-    TRACE,
-    PATCH,
-}
-
-enum HTTPProto : char (String name)
-{
-    HTTP1_0 ("HTTP/1.0"),
-    HTTP1_1 ("HTTP/1.1"),
-}
-
 // https://www.rfc-editor.org/rfc/rfc7230.html#section-3.1.1
 struct HTTPRequest
 {
