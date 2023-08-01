@@ -2,6 +2,8 @@ module http;
 import std::io;
 import std::net;
 
+const HTTP_SERVER_LOG = false;
+
 struct HTTPServer
 {
 	Listener listener;

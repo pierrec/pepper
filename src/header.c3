@@ -58,7 +58,9 @@ fn void! HTTPHeader.scan(&self, Scanner *sc)
 		String name = ((String)bytes[:i]).copy(self.allocator);
 		String value = ((String)bytes[i + 1..]).copy(self.allocator);
 		self.set(name, value)!;
-		//io::printfn("HEADER %s=%s", name, value);
+		$if HTTP_SERVER_LOG:
+			io::printfn("HEADER %s=%s", name, value);
+		$endif
 	}
 	return HTTPError.TOO_MANY_HEADERS?;
 }
