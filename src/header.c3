@@ -47,9 +47,9 @@ fn void! HTTPHeader.scan(&self, Scanner *sc)
 {
 	for (usz h = 0; h < MAX_HEADERS; h++)
 	{
-		char[] bytes = scan(sc, "\r\n", HTTPError.INVALID_HEADER)!;
+		char[] bytes = scan(sc, "\r\n", HTTPError.INVALID_REQUEST)!;
 		if (bytes.len == 0) return;
-		usz i = index_of(bytes, ':', HTTPError.INVALID_HEADER)!;
+		usz i = index_of(bytes, ':', HTTPError.INVALID_REQUEST)!;
 		String name = ((String)bytes[:i]).copy(self.allocator);
 		canonicalize(name)!;
 		String value = ((String)bytes[i + 1..]).copy(self.allocator);
@@ -114,7 +114,7 @@ fn void! canonicalize(String s)
 			case string::char_in_set(*c, "!#$%&'*+.^_`|~"):
 				break;
 			default:
-				return HTTPError.INVALID_HEADER_NAME?;
+				return HTTPError.INVALID_REQUEST?;
 		}
 	}
 }

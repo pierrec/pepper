@@ -14,16 +14,6 @@ struct HTTPRequest
     HTTPBody   body;
 }
 
-fault HTTPRequestError
-{
-    INVALID_STATUSLINE,
-    INVALID_METHOD,
-    INVALID_PATH,
-    INVALID_PROTO,
-    INVALID_HEADER,
-    INVALID_CONTENTLENGTH,
-}
-
 fn void HTTPRequest.init(&self, Allocator* allocator)
 {
     *self = {};
@@ -60,15 +50,15 @@ fn void! HTTPRequest.read_from(&self, Stream src)
     if (try clen = self.header.get("Content-Length"))
     {
         usz! l = clen.to_uint();
-        if (catch l) return HTTPRequestError.INVALID_CONTENTLENGTH?;
+        if (catch l) return HTTPError.INVALID_REQUEST?;
         limit = l;
-		if (limit < remaining.len) return HTTPRequestError.INVALID_CONTENTLENGTH?;
+		if (limit < remaining.len) return HTTPError.INVALID_REQUEST?;
         limit -= remaining.len;
         // No need to copy remaining as the scanner is no longer in use.
     }
     else
     {
-		if (remaining.len > 0) return HTTPRequestError.INVALID_CONTENTLENGTH?;
+		if (remaining.len > 0) return HTTPError.INVALID_REQUEST?;
     }
 	self.body.init(remaining, src, limit);
 }

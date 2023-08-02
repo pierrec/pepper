@@ -137,6 +137,7 @@ fn usz! HTTPResponse.write_to(&self, Stream dst)
 
 	written += self.header.write_to(dst)!;
 	written += self.body.copy_to(dst)!;
+	@ok(self.body.close());
 
 	return written;
 }

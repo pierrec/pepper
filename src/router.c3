@@ -74,10 +74,12 @@ HTTPHandlerInterface httprouter_interface = {
 
 fn void! HTTPRouter.handle(&self, HTTPRequest* req, HTTPResponse* resp)
 {
-	String path = req.url.path;
-	$if HTTP_ROUTER_LOG:
-		io::printfn("incoming request method=%s route=%s", req.method, path);
-	$endif
+	if (resp.status != 200)
+	{
+		self.on_error.handle(req, resp)!;
+		return;
+	}
+
 	HTTPRouteList routes = self.routes.get(req.method);
 	$if HTTP_ROUTER_LOG:
 		io::printfn("found %d potential routes for method %s", routes.len(), req.method);
@@ -86,22 +88,26 @@ fn void! HTTPRouter.handle(&self, HTTPRequest* req, HTTPResponse* resp)
 	{
 		resp.status = 405;
 		resp.header.set("Allow", req.method.nameof)!;
-		self.on_error.handle(req, resp)!;
-		return;
 	}
-	// TODO speed up the lookup
-	foreach (r : routes)
+	else
 	{
-		String route = r.route;
-		if (path.starts_with(route))
+		String path = req.url.path;
+		$if HTTP_ROUTER_LOG:
+			io::printfn("incoming request method=%s route=%s", req.method, path);
+		$endif
+		foreach (r : routes)
 		{
-			r.handler.handle(req, resp)!;
-			return;
+			String route = r.route;
+			if (path.starts_with(route))
+			{
+				r.handler.handle(req, resp)!;
+				return;
+			}
 		}
+		$if HTTP_ROUTER_LOG:
+			io::printfn("%s: no route", path);
+		$endif
+		resp.status = 404;
 	}
-	$if HTTP_ROUTER_LOG:
-		io::printfn("%s: no route", path);
-	$endif
-	resp.status = 404;
 	self.on_error.handle(req, resp)!;
 }

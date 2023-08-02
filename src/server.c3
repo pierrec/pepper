@@ -46,10 +46,18 @@ fn void! serve_client(Socket sock, SocketOption[] options, HTTPHandler handler)
 
 	HTTPRequest req;
 	req.init(&arena);
-	req.read_from(sock.as_stream())!;
-
 	HTTPResponse resp;
 	resp.init(&arena);
+	if (catch req.read_from(sock.as_stream()))
+	{
+		case HTTPError.INVALID_REQUEST:
+			resp.status = 400;
+		case HTTPError.TOO_MANY_HEADERS:
+		case SearchResult.MISSING:
+			resp.status = 431;
+		default:
+			resp.status = 500;
+	}
 
 	if (catch err = handler.handle(&req, &resp))
 	{

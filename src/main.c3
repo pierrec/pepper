@@ -38,11 +38,10 @@ fn void do_server()
 	//Handler h;
 	//h.init("hello {{user}}", { "Joe" })!!;
 	StaticHandler h;
-	h.root.path_string = "/Users/pierre/sandbox/src/git.sr.ht/pierrec/c3/template";
-	h.init();
+	h.init("/Users/pierre/sandbox/src/git.sr.ht/pierrec/c3/pepper/resources", .allocator = mem::temp());
 
 	HTTPRouter r;
-	r.init({}, { GET, "/doc", h.as_httphandler() })!!;
+	r.init({}, { GET, "/", h.as_httphandler() })!!;
 
 	server.serve(r.as_httphandler())!!;
 }
