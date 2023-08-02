@@ -25,7 +25,7 @@ struct HTTPHandlerNoRoute
 
 fn void HTTPHandlerNoRoute.init(&self, String template = "<h1>{{status}}</h1><h2>{{status_message}}</h2>")
 {
-	self.template.init(template, {})!!;
+	self.template.init(template)!!;
 }
 
 fn HTTPHandler HTTPHandlerNoRoute.as_httphandler(&self)

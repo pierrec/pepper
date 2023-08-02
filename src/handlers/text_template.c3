@@ -9,9 +9,9 @@ struct TextTemplateHandler
 	TextTemplate template;
 }
 
-fn void! TextTemplateHandler.init(&self, String template, Type data)
+fn void! TextTemplateHandler.init(&self, String template)
 {
-	self.template.init(template, data)!;
+	self.template.init(template)!;
 }
 
 fn HTTPHandler TextTemplateHandler.as_httphandler(&self)
