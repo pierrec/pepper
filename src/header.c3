@@ -25,20 +25,17 @@ fn void HTTPHeader.init(&self, Allocator* allocator)
 
 fn String! HTTPHeader.get(&self, String name)
 {
-	canonicalize(name)!;
 	return self.data.get(name);
 }
 
 fn void! HTTPHeader.set(&self, String name, String value)
 {
 	if (value.len == 0) return;
-	canonicalize(name)!;
 	self.data.set(name, value);
 }
 
 fn void! HTTPHeader.del(&self, String name)
 {
-	canonicalize(name)!;
 	self.data.del(name);
 }
 
@@ -51,6 +48,7 @@ fn void! HTTPHeader.scan(&self, Scanner *sc)
 		if (bytes.len == 0) return;
 		usz i = index_of(bytes, ':', HTTPError.INVALID_HEADER)!;
 		String name = ((String)bytes[:i]).copy(self.allocator);
+		canonicalize(name)!;
 		String value = ((String)bytes[i + 1..]).copy(self.allocator);
 		self.set(name, value)!;
 		$if HTTP_SERVER_LOG:
@@ -94,7 +92,7 @@ macro HTTPHeader.@each(list; @body(name, value))
 fn void! canonicalize(String s)
 {
 	bool with_hyphen = true;
-	foreach (i, &c : s)
+	foreach (&c : s)
 	{
 		switch
 		{
@@ -116,6 +114,34 @@ fn void! canonicalize(String s)
 				return HTTPError.INVALID_HEADER_NAME?;
 		}
 	}
+}
+
+fn bool is_canonical(String s)
+{
+	bool with_hyphen = true;
+	foreach (c : s)
+	{
+		switch
+		{
+			case c.is_alnum():
+				if (with_hyphen && c.is_lower())
+				{
+					return false;
+				}
+				else if (!with_hyphen && c.is_upper())
+				{
+					return false;
+				}
+				with_hyphen = false;
+			case c == '-':
+				with_hyphen = true;
+			case string::char_in_set(c, "!#$%&'*+.^_`|~"):
+				break;
+			default:
+				return false;
+		}
+	}
+	return true;
 }
 
 macro char[]! scan(sc, pattern, e)
