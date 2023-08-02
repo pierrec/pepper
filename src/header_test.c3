@@ -38,8 +38,8 @@ fn void! header_scan()
     HTTPHeader header;
     header.init(mem::temp());
     header.scan(&sc)!;
-    assert(header.get("name1".tcopy())! == "value1");
-    assert(header.get("name2".tcopy())! == "value2");
+    assert(header.get("Name1".tcopy())! == "value1");
+    assert(header.get("Name2".tcopy())! == "value2");
 
     List list;
     header.@each(; String k, String v)

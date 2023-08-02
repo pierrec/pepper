@@ -40,7 +40,7 @@ fn void! serve_client(Socket sock, SocketOption[] options, HTTPHandler handler)
 	defer sock.close()!!;
 	foreach (o : options) sock.set_option(o)!;
 
-	char[512 << 10] buffer;
+	char[MAX_HEADERS * MAX_HEADER_LINE] buffer @noinit;
 	ArenaAllocator arena;
 	arena.init(buffer[..]);
 

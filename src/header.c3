@@ -4,7 +4,7 @@ import std::io;
 
 // MAX_HEADERS is the maximum number of headers that can be parsed in a request.
 // This is an arbitrary value only there to prevent DOS attacks.
-const MAX_HEADERS = 256;
+const MAX_HEADERS = 16;
 $assert MAX_HEADERS * 2 <= ushort.max;
 
 // https://www.rfc-editor.org/rfc/rfc7230.html#section-2.1
