@@ -48,3 +48,15 @@ fn void! HTTPHandler.handle(self, HTTPRequest* req, HTTPResponse* resp) @inline
 	if (HTTPHandleFn func = self.fns.handle_fn) return func(self, req, resp);
 	return IoError.UNSUPPORTED_OPERATION?;
 }
+
+fn int String.compare_to(self, String s)
+{
+	if (self.len != s.len) return (int)(self.len - s.len);
+	foreach (i, c : self)
+	{
+		char cc = s[i];
+		if (c == cc) continue;
+		return (int)(c - cc);
+	}
+	return 0;
+}

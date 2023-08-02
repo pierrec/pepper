@@ -35,7 +35,7 @@ struct HTTPRouteInternal @private
 fn bool HTTPRoute.less(r1, HTTPRoute r2)
 {
 	// NB. routes need to be sorted in descending order to match longest ones first.
-	return !(r1.method < r2.method || (r1.method == r2.method && builtin::cmp(r1.route, r2.route) < 0));
+	return !(r1.method < r2.method || (r1.method == r2.method && r1.route.compare_to(r2.route) < 0));
 }
 
 /**
@@ -85,6 +85,7 @@ fn void! HTTPRouter.handle(&self, HTTPRequest* req, HTTPResponse* resp)
 	if (routes.len() == 0)
 	{
 		resp.status = 405;
+		resp.header.set("Allow", req.method.nameof)!;
 		self.no_route.handle(req, resp)!;
 		return;
 	}

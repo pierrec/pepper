@@ -126,9 +126,7 @@ fn usz! HTTPResponse.write_to(&self, Stream dst)
 {
 	if (!self.status.is_valid()) return HTTPResponseError.INVALID_STATUS?;
 
-	const CONNECTION = "Connection";
-	assert(is_canonical(CONNECTION));
-	self.header.set(CONNECTION, "close")!;
+	self.header.set("Connection", "close")!;
 
 	usz written;
 

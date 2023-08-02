@@ -25,17 +25,20 @@ fn void HTTPHeader.init(&self, Allocator* allocator)
 
 fn String! HTTPHeader.get(&self, String name)
 {
+	assert(is_canonical(name), "%s", name);
 	return self.data.get(name);
 }
 
 fn void! HTTPHeader.set(&self, String name, String value)
 {
+	assert(is_canonical(name), "%s", name);
 	if (value.len == 0) return;
 	self.data.set(name, value);
 }
 
 fn void! HTTPHeader.del(&self, String name)
 {
+	assert(is_canonical(name), "%s", name);
 	self.data.del(name);
 }
 
