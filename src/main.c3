@@ -35,8 +35,11 @@ fn void do_server()
 {
 	HTTPServer server;
 	server.init("localhost:8081", 1000)!!;
-	Handler h;
-	h.init("hello {{user}}", { "Joe" })!!;
+	//Handler h;
+	//h.init("hello {{user}}", { "Joe" })!!;
+	StaticHandler h;
+	h.root.path_string = "/Users/pierre/sandbox/src/git.sr.ht/pierrec/c3/template";
+	h.init();
 
 	HTTPRouter r;
 	r.init({}, { GET, "/doc", h.as_httphandler() })!!;

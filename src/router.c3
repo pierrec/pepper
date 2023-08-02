@@ -15,7 +15,7 @@ def HTTPRouteStringMap = Map(<4>);
 struct HTTPRouter
 {
 	HTTPRouteMap routes;
-	HTTPHandler no_route;
+	HTTPHandler on_error;
 }
 
 struct HTTPRoute
@@ -41,7 +41,7 @@ fn bool HTTPRoute.less(r1, HTTPRoute r2)
 /**
  * @require routes.len > 0
  **/
-fn void! HTTPRouter.init(&self, HTTPHandler no_route, HTTPRoute ...routes)
+fn void! HTTPRouter.init(&self, HTTPHandler on_error, HTTPRoute ...routes)
 {
 	quicksort(routes);
 	HTTPRouteMap map;
@@ -56,11 +56,11 @@ fn void! HTTPRouter.init(&self, HTTPHandler no_route, HTTPRoute ...routes)
 		HTTPRouteList* list = map.get_ref(r.method);
 		list.push({ .route = r.route, .handler = r.handler });
 	}
-	if (!no_route.data)
+	if (!on_error.data)
 	{
-		no_route = handlers::no_route.as_httphandler();
+		on_error = handlers::on_error.as_httphandler();
 	}
-	*self = { .routes = map, .no_route = no_route };
+	*self = { .routes = map, .on_error = on_error };
 }
 
 fn HTTPHandler HTTPRouter.as_httphandler(&self)
@@ -86,7 +86,7 @@ fn void! HTTPRouter.handle(&self, HTTPRequest* req, HTTPResponse* resp)
 	{
 		resp.status = 405;
 		resp.header.set("Allow", req.method.nameof)!;
-		self.no_route.handle(req, resp)!;
+		self.on_error.handle(req, resp)!;
 		return;
 	}
 	// TODO speed up the lookup
@@ -103,5 +103,5 @@ fn void! HTTPRouter.handle(&self, HTTPRequest* req, HTTPResponse* resp)
 		io::printfn("%s: no route", path);
 	$endif
 	resp.status = 404;
-	self.no_route.handle(req, resp)!;
+	self.on_error.handle(req, resp)!;
 }
