@@ -38,7 +38,7 @@ fn void do_server()
 	//Handler h;
 	//h.init("hello {{user}}", { "Joe" })!!;
 	StaticHandler h;
-	h.init("/Users/pierre/sandbox/src/git.sr.ht/pierrec/c3/pepper/resources", .allocator = mem::temp());
+	h.init("/Users/pierre/sandbox/src/git.sr.ht/pierrec/c3/pepper/resources");
 
 	HTTPRouter r;
 	r.init({}, { GET, "/", h.as_httphandler() })!!;

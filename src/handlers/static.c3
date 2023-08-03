@@ -3,11 +3,12 @@ import std::io;
 
 def OnError = fn void(anyfault, HTTPRequest* req, HTTPResponse* resp);
 
+$assert File.sizeof == uptr.sizeof;
+
 // StaticHandler turns a filesystem directory into an HTTPHandler,
 // serving the files listed in the directory.
 struct StaticHandler
 {
-	Allocator* allocator;
 	Path root;
 	String index;
 	HTTPHandler on_error;
@@ -16,11 +17,9 @@ struct StaticHandler
 fn void StaticHandler.init(&self,
 	String root,
 	String index = "index.html",
-	Allocator* allocator = mem::heap(),
 	HTTPHandler on_error = handlers::on_error.as_httphandler())
 {
 	*self = {
-		.allocator = allocator,
 		.root = { root, path::DEFAULT_PATH_ENV },
 		.index = index,
 		.on_error = on_error,
@@ -55,26 +54,18 @@ fn void StaticHandler.handle(&self, HTTPRequest* req, HTTPResponse* resp)
 		@ok(self.on_error.handle(req, resp));
 		return;
 	}
-	StaticFile*! fptr = self.allocator.alloc(StaticFile.sizeof);
-	if (catch err = fptr)
-	{
-		resp.status = 500;
-		@ok(self.on_error.handle(req, resp));
-		return;
-	}
-	*fptr = { f, self.allocator };
 	resp.status = 200;
-	resp.body = fptr.as_stream();
+	resp.body = ((StaticFile)f).as_stream();
 }
 
-struct StaticFile
+def StaticFile = distinct File;
+
+fn Stream StaticFile.as_stream(self)
 {
-	inline File file;
-	Allocator* allocator;
+	return { .fns = &staticfile_stream, .data = bitcast(self, void*) };
 }
 
-fn void! StaticFile.close(&self)
-{
-	@ok(self.file.close());
-	self.allocator.free(self);
-}
+StreamInterface staticfile_stream = {
+	.read_fn = fn(s, bytes) => (bitcast(s.data, File)).read(bytes),
+	.close_fn = fn(s) => (bitcast(s.data, File)).close(),
+};
