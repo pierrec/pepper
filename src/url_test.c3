@@ -69,7 +69,29 @@ fn void url_decode()
     foreach (tc : tcases)
 	{
 		String s = tc.in.tcopy();
-		String decoded = url::decode(s);
+		String decoded = url::url_decode(s);
 		testing::assert_equal(decoded, tc.out);
+	}
+}
+
+struct QueryTest
+{
+    String query;
+    String key;
+    String value;
+}
+
+fn void! url_query()
+{
+	QueryTest[] tcases = {
+		{"?foo=bar", "foo", "bar"},
+		{"?foo=bar&foob=baz", "foo", "bar"},
+		{"?foo=bar&foob=baz", "foob", "baz"},
+	};
+	foreach (tc : tcases)
+	{
+		Url u = { .query = tc.query };
+		String value = u.get(tc.key)!;
+		testing::assert_equal(value, tc.value, tc.query);
 	}
 }

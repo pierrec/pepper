@@ -44,12 +44,12 @@ fn void! Url.init(&self, String data, bool path_only = false)
     }
     if (try query_index = data.index_of_char('?'))
     {
-        self.query = decode(data[query_index..]);
+        self.query = url_decode(data[query_index..]);
         data = data[:query_index];
     }
     if (try path_index = data.index_of_char('/'))
     {
-        self.path = decode(data[path_index..]);
+        self.path = url_decode(data[path_index..]);
         data = data[:path_index];
     }
     if (self.path == "") self.path = "/";
@@ -73,6 +73,22 @@ fn void! Url.init(&self, String data, bool path_only = false)
     }
 }
 
+fn String! Url.get(&self, String name)
+{
+	if (self.query.len == 0 || name.len == 0) return SearchResult.MISSING?;
+	String q = self.query[1..];
+	while (true)
+	{
+		usz start = q.index_of_char('=')!;
+		String key = q[:start];
+		q = q[start + 1..];
+		usz! end = q.index_of_char('&');
+		if (catch end) return key == name ? q : SearchResult.MISSING?;
+		if (key == name) return q[:end];
+		q = q[end + 1..];
+	}
+}
+
 macro bool Url.equals(&self, Url other)
 {
 	$foreach ($m : Url.membersof)
@@ -81,7 +97,10 @@ macro bool Url.equals(&self, Url other)
 	return true;
 }
 
-fn String decode(String s)
+/**
+ * Decode the content of `s` in-place.
+ **/
+fn String url_decode(String s)
 {
 	if (s.len < 3) return s;
 	for (usz i = 0; i < s.len - 2; i++)
