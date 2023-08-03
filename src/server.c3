@@ -3,6 +3,7 @@ import std::io;
 import std::net;
 
 const HTTP_SERVER_LOG = false;
+const MAX_HEADERS_SIZE = 16 << 10;
 
 struct HTTPServer
 {
@@ -40,19 +41,17 @@ fn void! serve_client(Socket sock, SocketOption[] options, HTTPHandler handler)
 	defer sock.close()!!;
 	foreach (o : options) sock.set_option(o)!;
 
-	char[MAX_HEADERS * MAX_HEADER_LINE] buffer @noinit;
-	ArenaAllocator arena;
-	arena.init(buffer[..]);
+	char[MAX_HEADERS_SIZE] buffer @noinit;
+	Scanner sc;
+	sc.init(sock.as_stream(), buffer[..]);
 
 	HTTPRequest req;
-	req.init(&arena);
 	HTTPResponse resp;
-	resp.init(&arena);
-	if (catch req.read_from(sock.as_stream()))
+	resp.init();
+	if (catch req.read_from(&sc, sock.as_stream()))
 	{
 		case HTTPError.INVALID_REQUEST:
 			resp.status = 400;
-		case HTTPError.TOO_MANY_HEADERS:
 		case SearchResult.MISSING:
 			resp.status = 431;
 		default:

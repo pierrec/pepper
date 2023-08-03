@@ -1,12 +1,9 @@
 module http;
 import std::io;
 
-const MAX_HEADER_LINE = 1024;
-
 // https://www.rfc-editor.org/rfc/rfc7230.html#section-3.1.1
 struct HTTPRequest
 {
-    char[MAX_HEADER_LINE] buf;
     HTTPMethod method;
     Url        url;
     HTTPProto  proto;
@@ -14,19 +11,10 @@ struct HTTPRequest
     HTTPBody   body;
 }
 
-fn void HTTPRequest.init(&self, Allocator* allocator)
+fn void! HTTPRequest.read_from(&self, Scanner* sc, Stream src)
 {
-    *self = {};
-    self.header.init(allocator);
-}
-
-fn void! HTTPRequest.read_from(&self, Stream src)
-{
-    Scanner sc;
-    sc.init(src, self.buf[..]);
-
     // Status line.
-    char[] line = scan(&sc, "\r\n", HTTPError.INVALID_REQUEST)!;
+    char[] line = scan(sc, "\r\n", HTTPError.INVALID_REQUEST)!;
 	$if HTTP_SERVER_LOG:
 		io::printfn("REQUEST line=%s", line);
 	$endif
@@ -35,14 +23,14 @@ fn void! HTTPRequest.read_from(&self, Stream src)
 
     line = line[i + 1..];
 	i = index_of(line, ' ', HTTPError.INVALID_REQUEST)!;
-	String raw_url = ((String)line[:i]).copy(self.header.allocator);
+	String raw_url = (String)line[:i];
 	self.url.init(raw_url)!;
 
     line = line[i + 1..];
 	self.proto = match_enum(HTTPProto, line)!;
 
     // Headers.
-    self.header.scan(&sc)!;
+    self.header.scan(sc)!;
 
     // Body.
     usz limit;

@@ -8,18 +8,18 @@ def List = list::List(<String[2]>);
 fn void header()
 {
     String[2][] tcases = {
-        {"name1", "value1"},
-        {"name2", "value2"},
-        {"name3", "value3"},
-        {"name4", "value4"},
-        {"name5", "value5"},
-        {"name6", "value6"},
+        {"Name1", "value1"},
+        {"Name2", "value2"},
+        {"Name3", "value3"},
+        {"Name4", "value4"},
+        {"Name5", "value5"},
+        {"Name6", "value6"},
     };
     HTTPHeader header;
     foreach (tc : tcases)
     {
-        String name = tc[0].tcopy();
-        String value = tc[1].tcopy();
+        String name = tc[0];
+        String value = tc[1];
         if (try v = header.get(name)) assert(false, "header %s should not exist", name);
         header.set(name, value)!!;
         String v = header.get(name)!!;
@@ -36,7 +36,6 @@ fn void! header_scan()
     sc.init(br.as_stream(), buffer[..]);
 
     HTTPHeader header;
-    header.init(mem::temp());
     header.scan(&sc)!;
     assert(header.get("Name1".tcopy())! == "value1");
     assert(header.get("Name2".tcopy())! == "value2");

@@ -19,7 +19,7 @@ struct Entry
     String value;
 }
 
-fn void Map.init(&self)
+fn void Map.reset(&self)
 {
     *self = {};
 }

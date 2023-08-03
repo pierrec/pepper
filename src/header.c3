@@ -2,25 +2,13 @@ module http;
 import http::stringmap;
 import std::io;
 
-// MAX_HEADERS is the maximum number of headers that can be parsed in a request.
-// This is an arbitrary value only there to prevent DOS attacks.
-const MAX_HEADERS = 16;
-$assert MAX_HEADERS * 2 <= ushort.max;
-
 // https://www.rfc-editor.org/rfc/rfc7230.html#section-2.1
 
 def HTTPHeaderMap = Map(<8>);
 
 struct HTTPHeader
 {
-	Allocator* allocator;
 	HTTPHeaderMap data;
-}
-
-fn void HTTPHeader.init(&self, Allocator* allocator)
-{
-	*self = { .allocator = allocator };
-	self.data.init();
 }
 
 fn String! HTTPHeader.get(&self, String name)
@@ -45,20 +33,19 @@ fn void! HTTPHeader.del(&self, String name)
 // https://www.rfc-editor.org/rfc/rfc7230.html#section-3.2.4
 fn void! HTTPHeader.scan(&self, Scanner *sc)
 {
-	for (usz h = 0; h < MAX_HEADERS; h++)
+	while (true)
 	{
 		char[] bytes = scan(sc, "\r\n", HTTPError.INVALID_REQUEST)!;
 		if (bytes.len == 0) return;
 		usz i = index_of(bytes, ':', HTTPError.INVALID_REQUEST)!;
-		String name = ((String)bytes[:i]).copy(self.allocator);
+		String name = (String)bytes[:i];
 		canonicalize(name)!;
-		String value = ((String)bytes[i + 1..]).copy(self.allocator);
+		String value = (String)bytes[i + 1..];
 		self.set(name, value)!;
 		$if HTTP_SERVER_LOG:
 			io::printfn("HEADER %s=%s", name, value);
 		$endif
 	}
-	return HTTPError.TOO_MANY_HEADERS?;
 }
 
 fn usz! HTTPHeader.write_to(&self, Stream stream)

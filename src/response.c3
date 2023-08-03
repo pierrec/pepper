@@ -116,10 +116,9 @@ fault HTTPResponseError
 	PARSE_ERROR,
 }
 
-fn void HTTPResponse.init(&self, Allocator* allocator)
+fn void HTTPResponse.init(&self)
 {
 	*self = { .status = 200, .proto = HTTP1_1 };
-	self.header.init(allocator);
 }
 
 fn usz! HTTPResponse.write_to(&self, Stream dst)
