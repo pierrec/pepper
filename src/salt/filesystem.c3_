@@ -1,0 +1,87 @@
+module http::handlers;
+import std::io;
+import template::text;
+
+def FileSystemTextTemplate = TextTemplate(<FileSystem>);
+def Callback = text::Callback(<FileSystem>);
+def FSDirectoryTextTemplate = TextTemplate(<FSDirectory>);
+def FSFileTextTemplate = TextTemplate(<FSFile>);
+
+fn bool! fs_walker(Path p, bool is_dir, void* ptr)
+{
+	FileSystem* self = (FileSystem*)ptr;
+	if (is_dir)
+	{
+		self.dir.data.name = p.as_str();
+		self.written += self.dir.write_to(self.writer)!;
+	}
+	else
+	{
+		self.file.data.name = p.as_str();
+		self.written += self.file.write_to(self.writer)!;
+	}
+	return false;
+}
+
+struct FileSystem
+{
+	String root;
+	Callback cb;
+	FSDirectoryTextTemplate dir;
+	FSFileTextTemplate file;
+
+	Stream writer;
+	usz written;
+}
+
+struct FSDirectory
+{
+	String name;
+}
+
+struct FSFile
+{
+	String name;
+}
+
+fn usz! FileSystem.ls(&self, Stream writer)
+{
+	self.writer = writer;
+	Path p = path::new(self.root, mem::temp())!; // TODO allocator
+	p.walk(&fs_walker, self)!;
+	return self.written;
+}
+
+// FileSystemHandler turns a filesystem directory into an HTTPHandler.
+struct FileSystemHandler
+{
+	FileSystemTextTemplate template;
+}
+
+fn void! FileSystemHandler.init(&self,
+	String root,
+	String template = "Root {{root}} {{cb}}",
+	String dir_tmpl = "<h3>{{name}}</h3>",
+	String file_tmpl = "<p>{{name}}</p>")
+{
+	self.template.data.root = root;
+	self.template.data.dir.init(dir_tmpl)!;
+	self.template.data.file.init(file_tmpl)!;
+	self.template.data.cb = &FileSystem.ls;
+	self.template.init(template)!;
+}
+
+fn HTTPHandler FileSystemHandler.as_httphandler(&self)
+{
+	return { .fns = &fshandler_interface, .data = self };
+}
+
+HTTPHandlerInterface fshandler_interface = {
+	.handle_fn = fn(h, req, resp) => ((FileSystemHandler*)h.data).handle(req, resp),
+};
+
+fn void FileSystemHandler.handle(&self, HTTPRequest* req, HTTPResponse* resp)
+{
+	resp.status = 200;
+	resp.body = self.template.as_stream();
+}
