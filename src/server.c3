@@ -63,5 +63,5 @@ fn void! serve_client(Socket sock, SocketOption[] options, HTTPHandler handler)
 		io::printfn("[%s] %s %s", req.method, req.url.path, err);
 		return;
 	}
-	resp.write_to(sock.as_stream())!;
+	resp.write_stream(sock.as_stream())!;
 }

@@ -1,4 +1,4 @@
-module http;
+module http::handlers;
 import std::io;
 import http::handlers::texttemplate;
 
@@ -38,10 +38,15 @@ fn void do_server()
 	//Handler h;
 	//h.init("hello {{user}}", { "Joe" })!!;
 	StaticHandler h;
-	h.init("/Users/pierre/sandbox/src/git.sr.ht/pierrec/c3/pepper/resources");
+	h.init("/Users/pierre/sandbox/src/git.sr.ht/pierrec/c3/pepper");
+	FileTemplateHandler fth;
+	fth.init("/Users/pierre/sandbox/src/git.sr.ht/pierrec/c3/pepper/resources/module.html")!!;
 
 	HTTPRouter r;
-	r.init({}, { GET, "/", h.as_httphandler() })!!;
+	r.init({}, mem::temp(),
+		{ POST, "/", fth.as_httphandler() },
+		{ GET, "/", fth.as_httphandler() },
+		{ GET, "/resources", h.as_httphandler() })!!;
 
 	server.serve(r.as_httphandler())!!;
 }

@@ -48,7 +48,7 @@ fn void! HTTPHeader.scan(&self, Scanner *sc)
 	}
 }
 
-fn usz! HTTPHeader.write_to(&self, Stream stream)
+fn usz! HTTPHeader.write_stream(&self, Stream stream)
 {
 	usz n;
 	self.data.@each(; String name, String value)

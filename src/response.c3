@@ -121,8 +121,9 @@ fn void HTTPResponse.init(&self)
 	*self = { .status = 200, .proto = HTTP1_1 };
 }
 
-fn usz! HTTPResponse.write_to(&self, Stream dst)
+fn usz! HTTPResponse.write_stream(&self, Stream dst)
 {
+	defer @ok(self.body.close());
 	if (!self.status.is_valid()) return HTTPResponseError.INVALID_STATUS?;
 
 	self.header.set("Connection", "close")!;
@@ -134,9 +135,8 @@ fn usz! HTTPResponse.write_to(&self, Stream dst)
 	status.printf("%s %d %s\r\n", self.proto.name, self.status, self.status);
 	written += dst.write(status.as_str())!;
 
-	written += self.header.write_to(dst)!;
+	written += self.header.write_stream(dst)!;
 	written += self.body.copy_to(dst)!;
-	@ok(self.body.close());
 
 	return written;
 }

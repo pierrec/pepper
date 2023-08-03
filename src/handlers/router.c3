@@ -4,16 +4,15 @@ import std::sort;
 import std::collections::enummap;
 import std::collections::list;
 import http::handlers;
-import http::stringmap;
 
-const HTTP_ROUTER_LOG = false;
+const HTTP_ROUTER_LOG = true;
 
 def HTTPRouteList = List(<HTTPRouteInternal>);
 def HTTPRouteMap = EnumMap(<HTTPMethod, HTTPRouteList>);
-def HTTPRouteStringMap = Map(<4>);
 
 struct HTTPRouter
 {
+	Allocator* allocator;
 	HTTPRouteMap routes;
 	HTTPHandler on_error;
 }
@@ -29,38 +28,49 @@ struct HTTPRouteInternal @private
 {
 	String route;
 	HTTPHandler handler;
-	HTTPRouteStringMap values;
 }
 
 fn bool HTTPRoute.less(r1, HTTPRoute r2)
 {
 	// NB. routes need to be sorted in descending order to match longest ones first.
-	return !(r1.method < r2.method || (r1.method == r2.method && r1.route.compare_to(r2.route) < 0));
+	// TODO fix this
+	//return !(r1.method < r2.method || (r1.method == r2.method && r1.route.compare_to(r2.route) < 0));
+	return !(r1.method < r2.method || r1.method == r2.method);
 }
 
 /**
  * @require routes.len > 0
  **/
-fn void! HTTPRouter.init(&self, HTTPHandler on_error, HTTPRoute ...routes)
+fn void! HTTPRouter.init(&self,
+	HTTPHandler on_error = handlers::on_error.as_httphandler(),
+	Allocator* allocator,
+	HTTPRoute ...routes)
 {
 	quicksort(routes);
-	HTTPRouteMap map;
-	map.init({});
+	*self = { .allocator = allocator, .on_error = on_error };
 	foreach (i, r : routes)
 	{
 		if (r.route == "") return HTTPError.INVALID_ROUTE?;
-		if (i > 0 && r.route == routes[i - 1].route) return HTTPError.DUPLICATE_ROUTE?;
+		if (i > 0)
+		{
+			HTTPRoute prev = routes[i - 1];
+			if (r.method == prev.method && r.route == prev.route) return HTTPError.DUPLICATE_ROUTE?;
+		}
 		$if HTTP_ROUTER_LOG:
 			io::printfn("ROUTER init method=%s route=%s", r.method, r.route);
 		$endif
-		HTTPRouteList* list = map.get_ref(r.method);
+		HTTPRouteList* list = self.routes.get_ref(r.method);
+		if (list.len() == 0) list.init(.using = allocator);
 		list.push({ .route = r.route, .handler = r.handler });
 	}
-	if (!on_error.data)
+}
+
+fn void! HTTPRouter.free(&self)
+{
+	foreach (r : self.routes.values)
 	{
-		on_error = handlers::on_error.as_httphandler();
+		r.free();
 	}
-	*self = { .routes = map, .on_error = on_error };
 }
 
 fn HTTPHandler HTTPRouter.as_httphandler(&self)
@@ -79,6 +89,14 @@ fn void! HTTPRouter.handle(&self, HTTPRequest* req, HTTPResponse* resp)
 		self.on_error.handle(req, resp)!;
 		return;
 	}
+	$if HTTP_ROUTER_LOG:
+		io::printfn("total num of routes=%d", self.routes.len());
+		for (usz i = 0; i < self.routes.len(); i++)
+		{
+			HTTPMethod m = (HTTPMethod)i;
+			io::printfn("%s -> %d", m, self.routes[m].len());
+		}
+	$endif
 
 	HTTPRouteList routes = self.routes.get(req.method);
 	$if HTTP_ROUTER_LOG:

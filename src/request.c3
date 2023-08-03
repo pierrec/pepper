@@ -61,7 +61,7 @@ fn usz! HTTPRequest.write_to(&self, Stream dst)
     str.printf("%s %s %s\r\n", self.method, self.url.path, self.proto.name);
     written += dst.write(str.as_str())!;
 
-    written += self.header.write_to(dst)!;
+    written += self.header.write_stream(dst)!;
     written += self.body.as_stream().copy_to(dst)!;
 
     return written;
@@ -119,20 +119,18 @@ fn Stream HTTPBody.as_stream(&self)
 }
 
 StreamInterface bodyreader_interface = {
-	.read_fn = fn(s, bytes) => ((HTTPBody*)s.data).read(bytes),
+	.write_stream_fn = fn(s, dst) => ((HTTPBody*)s.data).write_stream(dst),
 };
 
-fn usz! HTTPBody.read(&self, char[] bytes)
+fn usz! HTTPBody.write_stream(&self, Stream writer)
 {
 	usz n;
 	if (self.data.len)
 	{
-		n = min(bytes.len, self.data.len);
-		bytes[:n] = self.data[:n];
-		self.data = self.data[n..];
-		bytes = bytes[n..];
+		n += writer.write(self.data)!;
+		self.data = {};
 	}
-	n += self.reader.read(bytes)!;
+	n += self.reader.as_stream().copy_to(writer)!;
 	return n;
 }
 
