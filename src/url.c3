@@ -75,18 +75,10 @@ fn void! Url.init(&self, String data, bool path_only = false)
 
 fn String! Url.get(&self, String name)
 {
-	if (self.query.len == 0 || name.len == 0) return SearchResult.MISSING?;
-	String q = self.query[1..];
-	while (true)
-	{
-		usz start = q.index_of_char('=')!;
-		String key = q[:start];
-		q = q[start + 1..];
-		usz! end = q.index_of_char('&');
-		if (catch end) return key == name ? q : SearchResult.MISSING?;
-		if (key == name) return q[:end];
-		q = q[end + 1..];
-	}
+	if (self.query.len == 0) return SearchResult.MISSING?;
+	FormData fd;
+	fd.data = self.query[1..];
+	return fd.get(name);
 }
 
 macro bool Url.equals(&self, Url other)

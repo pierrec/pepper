@@ -1,5 +1,6 @@
 module http;
 import std::io;
+import http::url;
 
 // https://www.rfc-editor.org/rfc/rfc7230.html#section-3.1.1
 struct HTTPRequest
@@ -66,6 +67,25 @@ fn usz! HTTPRequest.write_to(&self, Stream dst)
     return written;
 }
 
+/**
+ * On requests with a method of POST, PUT or PATCH, parse the body for
+ * form values and return them.
+ **/
+fn FormData! HTTPRequest.parse_form(&self, Allocator* allocator)
+{
+	switch (self.method)
+	{
+		case POST:
+		case PUT:
+		case PATCH:
+			FormData fd;
+			fd.init(self.body.as_stream(), allocator)!;
+			return fd;
+		default:
+			return {};
+	}
+}
+
 macro match_enum($Type, data)
 {
 	foreach (i, v : $Type.values)
@@ -114,4 +134,44 @@ fn usz! HTTPBody.read(&self, char[] bytes)
 	}
 	n += self.reader.read(bytes)!;
 	return n;
+}
+
+struct FormData
+{
+	Allocator* allocator;
+	String data;
+}
+
+fn void! FormData.init(&self, Stream reader, Allocator* allocator)
+{
+	ByteWriter bw;
+	bw.init(.using = allocator);
+	reader.copy_to(bw.as_stream())!;
+	String data = url::url_decode(bw.as_str());
+	*self = { .allocator = allocator, .data = data };
+}
+
+fn void! FormData.free(&self)
+{
+	if (self.allocator)
+	{
+		self.allocator.free(self.data)!;
+		*self = {};
+	}
+}
+
+fn String! FormData.get(self, String name)
+{
+	if (name.len == 0) return SearchResult.MISSING?;
+	String s = self.data;
+	while (true)
+	{
+		usz start = s.index_of_char('=')!;
+		String key = s[:start];
+		s = s[start + 1..];
+		usz! end = s.index_of_char('&');
+		if (catch end) return key == name ? s : SearchResult.MISSING?;
+		if (key == name) return s[:end];
+		s = s[end + 1..];
+	}
 }
