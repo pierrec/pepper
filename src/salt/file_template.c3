@@ -8,6 +8,7 @@ struct FileTemplateHandler
 	String file_path;
 	String start;
 	String end;
+	bool cached;
 	StreamTextTemplate template;
 	FormData data;
 	Url url;
@@ -18,11 +19,13 @@ fn void! FileTemplateHandler.init(&self,
 	String file_path,
 	String tag_start = template::DEFAULT_START_TAG,
 	String tag_end = template::DEFAULT_END_TAG,
+	bool cached = true,
 	HTTPHandler on_error = handlers::on_error.as_httphandler())
 {
 	*self = {
 		.file_path = file_path,
 		.start = tag_start, .end = tag_end,
+		.cached = cached,
 		.on_error = on_error,
 	};
 }
@@ -50,21 +53,24 @@ fn void FileTemplateHandler.handle(&self, HTTPRequest* req, HTTPResponse* resp)
 	self.data = data;
 	self.url = req.url;
 
-	File! f = file::open(self.file_path, "r");
-	if (catch err = f)
+	if (!self.cached || !self.template.is_initialized())
 	{
-		io::printfn("%s: %s", self.file_path, err);
-		resp.status = 500;
-		@ok(self.on_error.handle(req, resp));
-		return;
-	}
-	defer @ok(f.close());
-	if (catch err = self.template.init(f.as_stream(), self.start, self.end, allocator))
-	{
-		io::printfn("%s: %s", self.file_path, err);
-		resp.status = 500;
-		@ok(self.on_error.handle(req, resp));
-		return;
+		File! f = file::open(self.file_path, "r");
+		if (catch err = f)
+		{
+			io::printfn("%s: %s", self.file_path, err);
+			resp.status = 500;
+			@ok(self.on_error.handle(req, resp));
+			return;
+		}
+		defer @ok(f.close());
+		if (catch err = self.template.init(f.as_stream(), self.start, self.end, allocator))
+		{
+			io::printfn("%s: %s", self.file_path, err);
+			resp.status = 500;
+			@ok(self.on_error.handle(req, resp));
+			return;
+		}
 	}
 	resp.status = 200;
 	resp.body = self.as_stream();
@@ -91,5 +97,5 @@ fn usz! FileTemplateHandler.write_stream(&self, Stream writer)
 
 fn void! FileTemplateHandler.close(&self)
 {
-	self.template.free()!;
+	if (!self.cached) self.template.free()!;
 }
