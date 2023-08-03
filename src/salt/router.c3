@@ -17,6 +17,7 @@ struct HTTPRouter
 	HTTPHandler on_error;
 }
 
+// TODO support dynamic routes
 struct HTTPRoute
 {
 	HTTPMethod method;

@@ -40,6 +40,7 @@ fn void do_server()
 	StaticHandler h;
 	h.init("/Users/pierre/sandbox/src/git.sr.ht/pierrec/c3/pepper");
 	FileTemplateHandler fth;
+	defer @ok(fth.free());
 	fth.init("/Users/pierre/sandbox/src/git.sr.ht/pierrec/c3/pepper/resources/module.html")!!;
 
 	HTTPRouter r;

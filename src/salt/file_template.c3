@@ -30,6 +30,11 @@ fn void! FileTemplateHandler.init(&self,
 	};
 }
 
+fn void! FileTemplateHandler.free(&self)
+{
+	if (self.cached) self.template.free()!;
+}
+
 fn HTTPHandler FileTemplateHandler.as_httphandler(&self)
 {
 	return { .fns = &filetemplatehandler_interface, .data = self };
