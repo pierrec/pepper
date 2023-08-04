@@ -12,6 +12,7 @@ struct FileTemplateHandler
 	StreamTextTemplate template;
 	FormData data;
 	Url url;
+	PathData path_data;
 	HTTPHandler on_error;
 }
 
@@ -44,7 +45,7 @@ HTTPHandlerInterface filetemplatehandler_interface = {
 	.handle_fn = fn(h, ctx, req, resp) => ((FileTemplateHandler*)h.data).handle(ctx, req, resp),
 };
 
-fn void FileTemplateHandler.handle(&self, void* context, HTTPRequest* req, HTTPResponse* resp)
+fn void FileTemplateHandler.handle(&self, HTTPContext* ctx, HTTPRequest* req, HTTPResponse* resp)
 {
 	Allocator* allocator = mem::temp();
 	FormData! data = req.parse_form(allocator);
@@ -52,11 +53,12 @@ fn void FileTemplateHandler.handle(&self, void* context, HTTPRequest* req, HTTPR
 	{
 		io::printfn("%s: %s", self.file_path, err);
 		resp.status = 500;
-		@ok(self.on_error.handle(req, resp));
+		@ok(self.on_error.handle(ctx, req, resp));
 		return;
 	}
 	self.data = data;
 	self.url = req.url;
+	self.path_data = ctx.path_data;
 
 	if (!self.cached || !self.template.is_initialized())
 	{
@@ -65,7 +67,7 @@ fn void FileTemplateHandler.handle(&self, void* context, HTTPRequest* req, HTTPR
 		{
 			io::printfn("%s: %s", self.file_path, err);
 			resp.status = 500;
-			@ok(self.on_error.handle(req, resp));
+			@ok(self.on_error.handle(ctx, req, resp));
 			return;
 		}
 		defer @ok(f.close());
@@ -73,7 +75,7 @@ fn void FileTemplateHandler.handle(&self, void* context, HTTPRequest* req, HTTPR
 		{
 			io::printfn("%s: %s", self.file_path, err);
 			resp.status = 500;
-			@ok(self.on_error.handle(req, resp));
+			@ok(self.on_error.handle(ctx, req, resp));
 			return;
 		}
 	}
@@ -95,7 +97,7 @@ fn usz! FileTemplateHandler.write_stream(&self, Stream writer)
 {
 	return self.template.@render(writer; String name, usz n)
 	{
-		String value = self.data.get(name) ?? self.url.get(name) ?? self. "";
+		String value = self.data.get(name) ?? self.url.get(name) ?? self.path_data.get(name) ?? "";
 		n += writer.write(value)!;
 	};
 }

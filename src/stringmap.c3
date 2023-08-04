@@ -21,7 +21,7 @@ struct Entry
 
 fn void Map.clear(&self) @inline
 {
-	self.len = 0;
+	*self = {};
 }
 
 fn bool Map.has(&self, String key)

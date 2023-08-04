@@ -58,7 +58,7 @@ fn void! serve_client(Socket sock, SocketOption[] options, HTTPHandler handler)
 			resp.status = 500;
 	}
 
-	if (catch err = handler.handle(&req, &resp))
+	if (catch err = handler.handle(null, &req, &resp))
 	{
 		io::printfn("[%s] %s %s", req.method, req.url.path, err);
 		return;

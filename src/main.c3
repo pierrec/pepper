@@ -46,10 +46,10 @@ fn void do_server()
 	HTTPRouter r;
 	r.init({}, mem::temp(),
 		{ POST, "/", fth.as_httphandler() },
-		{ GET, "/", fth.as_httphandler() },
-		{ GET, "/resources", h.as_httphandler() },
-		//{ GET, "/doc/{module}", fth.as_httphandler() },
-		{ GET, "/doc/{module}/{id}/type", fth.as_httphandler() })!!;
+		{ GET, "/doc/{module}/{id}/type", fth.as_httphandler() },
+		{ GET, "/resources/", h.as_httphandler() },
+		{ GET, "/doc/{module}", fth.as_httphandler() },
+		{ GET, "/", fth.as_httphandler() })!!;
 
 	server.serve(r.as_httphandler())!!;
 }

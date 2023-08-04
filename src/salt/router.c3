@@ -51,21 +51,17 @@ struct HTTPRouteInternal @private
 	HTTPHandler handler;
 }
 
-fn bool HTTPRoute.less(r1, HTTPRoute r2)
-{
-	// NB. routes need to be sorted in descending order to match longest ones first.
-	return r1.method > r2.method || (r1.method == r2.method && string_compare_to(r1.route, r2.route) > 0);
-}
-
 /**
+ * Routes are processed in the order in which they are supplied, meaning that the
+ * first matching one will trigger its handle and stop.
  * @require routes.len > 0
  **/
 fn void! HTTPRouter.init(&self,
-	HTTPHandler on_error = handlers::on_error.as_httphandler(),
+	HTTPHandler on_error,
 	Allocator* allocator,
 	HTTPRoute ...routes)
 {
-	quicksort(routes);
+	if (!on_error.fns || !on_error.data) on_error = handlers::on_error.as_httphandler();
 	*self = { .allocator = allocator, .on_error = on_error };
 	foreach (i, r : routes)
 	{
@@ -121,9 +117,13 @@ fn void! HTTPRouter.init(&self,
 
 fn void! HTTPRouter.free(&self)
 {
-	foreach (r : self.routes.values)
+	if (self.allocator)
 	{
-		r.free();
+		foreach (r : self.routes.values)
+		{
+			r.free();
+		}
+		*self = {};
 	}
 }
 
@@ -133,14 +133,14 @@ fn HTTPHandler HTTPRouter.as_httphandler(&self)
 }
 
 HTTPHandlerInterface httprouter_interface = {
-	.handle_fn = fn(h, ctx, req, resp) => ((HTTPRouter*)h.data).handle(ctx, req, resp),
+	.handle_fn = fn(h, ctx, req, resp) => ((HTTPRouter*)h.data).handle(h.context, req, resp),
 };
 
-fn void! HTTPRouter.handle(&self, HTTPRequest* req, HTTPResponse* resp)
+fn void! HTTPRouter.handle(&self, HTTPContext* ctx, HTTPRequest* req, HTTPResponse* resp)
 {
 	if (resp.status != 200)
 	{
-		self.on_error.handle(req, resp)!;
+		self.on_error.handle(ctx, req, resp)!;
 		return;
 	}
 
@@ -152,7 +152,7 @@ fn void! HTTPRouter.handle(&self, HTTPRequest* req, HTTPResponse* resp)
 	{
 		resp.status = 405;
 		resp.header.set("Allow", req.method.nameof)!;
-		self.on_error.handle(req, resp)!;
+		self.on_error.handle(ctx, req, resp)!;
 		return;
 	}
 	String path = req.url.path;
@@ -191,30 +191,18 @@ fn void! HTTPRouter.handle(&self, HTTPRequest* req, HTTPResponse* resp)
 			}
 		}
 		$if HTTP_ROUTER_LOG:
-			io::printfn("%s: match found, keys=%d", path, self.context.path_data.len);
+			io::printfn("%s: match found: %s, keys=%d", path, r.sub_routes, self.context.path_data.len);
 			self.context.path_data.@each(; String key, String value)
 			{
 				io::printfn("key=%s value=%s", key, value);
 			};
 		$endif
-		r.handler.handle(req, resp)!;
+		r.handler.handle(ctx, req, resp)!;
 		return;
 	}
 	$if HTTP_ROUTER_LOG:
 		io::printfn("%s: no route", path);
 	$endif
 	resp.status = 404;
-	self.on_error.handle(req, resp)!;
-}
-
-fn int string_compare_to(String s1, String s2)
-{
-	if (s1.len != s2.len) return (int)(s1.len - s2.len);
-	foreach (i, c1 : s1)
-	{
-		char c2 = s2[i];
-		if (c1 == c2) continue;
-		return (int)(c1 - c2);
-	}
-	return 0;
+	self.on_error.handle(ctx, req, resp)!;
 }

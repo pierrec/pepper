@@ -32,10 +32,10 @@ fn HTTPHandler StaticHandler.as_httphandler(&self)
 }
 
 HTTPHandlerInterface fshandler_interface = {
-	.handle_fn = fn(h, ctx, req, resp) => ((StaticHandler*)h.data).handle(ctx, req, resp),
+	.handle_fn = fn(h, ctx, req, resp) => ((StaticHandler*)h.data).handle((HTTPContext*)ctx, req, resp),
 };
 
-fn void StaticHandler.handle(&self, void* context, HTTPRequest* req, HTTPResponse* resp)
+fn void StaticHandler.handle(&self, HTTPContext* ctx, HTTPRequest* req, HTTPResponse* resp)
 {
 	Path! file_name = self.root.append(req.url.path, mem::temp());
 	if (req.url.path.ends_with("/")) file_name = file_name.append(self.index, mem::temp());
@@ -43,7 +43,7 @@ fn void StaticHandler.handle(&self, void* context, HTTPRequest* req, HTTPRespons
 	{
 		io::printfn("root=%s req.path=%s: %s", self.root.as_str(), req.url.path, err);
 		resp.status = 500;
-		@ok(self.on_error.handle(req, resp));
+		@ok(self.on_error.handle(ctx, req, resp));
 		return;
 	}
 	File! f = file::open(file_name.as_str(), "r");
@@ -51,7 +51,7 @@ fn void StaticHandler.handle(&self, void* context, HTTPRequest* req, HTTPRespons
 	{
 		io::printfn("%s: %s", file_name.as_str(), err);
 		resp.status = 500;
-		@ok(self.on_error.handle(req, resp));
+		@ok(self.on_error.handle(ctx, req, resp));
 		return;
 	}
 	resp.status = 200;

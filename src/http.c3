@@ -40,8 +40,8 @@ struct HTTPHandlerInterface
 	HTTPHandleFn handle_fn;
 }
 
-fn void! HTTPHandler.handle(self, HTTPRequest* req, HTTPResponse* resp) @inline
+fn void! HTTPHandler.handle(self, void *ctx, HTTPRequest* req, HTTPResponse* resp) @inline
 {
-	if (HTTPHandleFn func = self.fns.handle_fn) return func(self, self.context, req, resp);
+	if (HTTPHandleFn func = self.fns.handle_fn) return func(self, ctx, req, resp);
 	return IoError.UNSUPPORTED_OPERATION?;
 }
