@@ -34,10 +34,10 @@ fn HTTPHandler HTTPHandlerHTTPError.as_httphandler(&self)
 }
 
 HTTPHandlerInterface httperror_interface = {
-	.handle_fn = fn(h, req, resp) => ((HTTPHandlerHTTPError*)h.data).handle(req, resp),
+	.handle_fn = fn(h, ctx, req, resp) => ((HTTPHandlerHTTPError*)h.data).handle(ctx, req, resp),
 };
 
-fn void! HTTPHandlerHTTPError.handle(&self, HTTPRequest* req, HTTPResponse* resp)
+fn void! HTTPHandlerHTTPError.handle(&self, void* context, HTTPRequest* req, HTTPResponse* resp)
 {
 	self.template.data = { resp.status.as_str(), resp.status.as_message() };
 	resp.body = self.template.as_stream();

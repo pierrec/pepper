@@ -1,23 +1,43 @@
 module http;
-import std::io;
-import std::sort;
 import std::collections::enummap;
 import std::collections::list;
+import std::io;
+import std::sort;
 import http::handlers;
+import http::stringmap;
 
 const HTTP_ROUTER_LOG = true;
 
+const DYN_START_TAG = "{";
+const DYN_END_TAG = "}";
+
+
+fault HTTPRouterError
+{
+	DUPLICATE_ROUTE,
+	INVALID_ROUTE,
+	INVALID_DYNAMIC_ROUTE,
+}
+
 def HTTPRouteList = List(<HTTPRouteInternal>);
 def HTTPRouteMap = EnumMap(<HTTPMethod, HTTPRouteList>);
+def StringList = List(<String>);
 
 struct HTTPRouter
 {
 	Allocator* allocator;
 	HTTPRouteMap routes;
 	HTTPHandler on_error;
+	HTTPContext context;
 }
 
-// TODO support dynamic routes
+def PathData = Map(<4>);
+
+struct HTTPContext
+{
+	PathData path_data;
+}
+
 struct HTTPRoute
 {
 	HTTPMethod method;
@@ -27,7 +47,7 @@ struct HTTPRoute
 
 struct HTTPRouteInternal @private
 {
-	String route;
+	String[] sub_routes;
 	HTTPHandler handler;
 }
 
@@ -49,19 +69,54 @@ fn void! HTTPRouter.init(&self,
 	*self = { .allocator = allocator, .on_error = on_error };
 	foreach (i, r : routes)
 	{
-		if (r.route == "") return HTTPError.INVALID_ROUTE?;
+		if (r.route == "") return HTTPRouterError.INVALID_ROUTE?;
 		if (i > 0)
 		{
 			HTTPRoute prev = routes[i - 1];
-			if (r.method == prev.method && r.route == prev.route) return HTTPError.DUPLICATE_ROUTE?;
+			if (r.method == prev.method && r.route == prev.route) return HTTPRouterError.DUPLICATE_ROUTE?;
 		}
 		$if HTTP_ROUTER_LOG:
 			io::printfn("ROUTER init method=%s route=%s", r.method, r.route);
 		$endif
 		HTTPRouteList* list = self.routes.get_ref(r.method);
 		if (list.len() == 0) list.init(.using = allocator);
-		list.push({ .route = r.route, .handler = r.handler });
+		String[] sub_routes = {|
+			StringList sub_list;
+			sub_list.init(.using = allocator);
+			String s = r.route;
+			while (true)
+			{
+				usz! start = s.index_of(DYN_START_TAG);
+				if (catch start)
+				{
+					sub_list.push(s);
+					return sub_list.array_view();
+				}
+				sub_list.push(s[:start]);
+				s = s[start + DYN_START_TAG.len..];
+				usz! end = s.index_of(DYN_END_TAG);
+				if (catch end) return HTTPRouterError.INVALID_DYNAMIC_ROUTE?;
+				sub_list.push(s[:end].trim());
+				s = s[end + DYN_END_TAG.len..];
+			}
+		|}!;
+		$if HTTP_ROUTER_LOG:
+			io::printf("%s: sub path elements:", r.route);
+			foreach (s : sub_routes)
+			{
+				io::printf(" <<%s>>", s);
+			}
+			io::printfn("");
+		$endif
+		list.push({ .sub_routes = sub_routes, .handler = r.handler });
 	}
+
+	$if HTTP_ROUTER_LOG:
+		foreach (m : HTTPMethod.values)
+		{
+			io::printfn("%s -> %d", m, self.routes[m].len());
+		}
+	$endif
 }
 
 fn void! HTTPRouter.free(&self)
@@ -74,11 +129,11 @@ fn void! HTTPRouter.free(&self)
 
 fn HTTPHandler HTTPRouter.as_httphandler(&self)
 {
-	return { .fns = &httprouter_interface, .data = self };
+	return { .fns = &httprouter_interface, .data = self, .context = &self.context };
 }
 
 HTTPHandlerInterface httprouter_interface = {
-	.handle_fn = fn(h, req, resp) => ((HTTPRouter*)h.data).handle(req, resp),
+	.handle_fn = fn(h, ctx, req, resp) => ((HTTPRouter*)h.data).handle(ctx, req, resp),
 };
 
 fn void! HTTPRouter.handle(&self, HTTPRequest* req, HTTPResponse* resp)
@@ -88,14 +143,6 @@ fn void! HTTPRouter.handle(&self, HTTPRequest* req, HTTPResponse* resp)
 		self.on_error.handle(req, resp)!;
 		return;
 	}
-	$if HTTP_ROUTER_LOG:
-		io::printfn("total num of routes=%d", self.routes.len());
-		for (usz i = 0; i < self.routes.len(); i++)
-		{
-			HTTPMethod m = (HTTPMethod)i;
-			io::printfn("%s -> %d", m, self.routes[m].len());
-		}
-	$endif
 
 	HTTPRouteList routes = self.routes.get(req.method);
 	$if HTTP_ROUTER_LOG:
@@ -105,27 +152,58 @@ fn void! HTTPRouter.handle(&self, HTTPRequest* req, HTTPResponse* resp)
 	{
 		resp.status = 405;
 		resp.header.set("Allow", req.method.nameof)!;
+		self.on_error.handle(req, resp)!;
+		return;
 	}
-	else
+	String path = req.url.path;
+	$if HTTP_ROUTER_LOG:
+		io::printfn("incoming request method=%s route=%s", req.method, path);
+	$endif
+	foreach ROUTES: (r : routes)
 	{
-		String path = req.url.path;
-		$if HTTP_ROUTER_LOG:
-			io::printfn("incoming request method=%s route=%s", req.method, path);
-		$endif
-		foreach (r : routes)
+		String p = path;
+		String[] sub_routes = r.sub_routes;
+		self.context.path_data.clear();
+		while (sub_routes.len)
 		{
-			String route = r.route;
-			if (path.starts_with(route))
+			String sub_path = sub_routes[0];
+			if (!p.starts_with(sub_path))
 			{
-				r.handler.handle(req, resp)!;
-				return;
+				continue ROUTES;
+			}
+			sub_routes = sub_routes[1..];
+			p = p[sub_path.len..];
+			if (sub_routes.len)
+			{
+				String key = sub_routes[0];
+				sub_routes = sub_routes[1..];
+				String value = {|
+					String next = sub_routes[0];
+					if (sub_routes.len == 0 || next.len == 0) return p;
+					if (try i = p.index_of(next))
+					{
+						defer p = p[i..];
+						return p[:i];
+					}
+					return "";
+				|};
+				self.context.path_data.set(key, value);
 			}
 		}
 		$if HTTP_ROUTER_LOG:
-			io::printfn("%s: no route", path);
+			io::printfn("%s: match found, keys=%d", path, self.context.path_data.len);
+			self.context.path_data.@each(; String key, String value)
+			{
+				io::printfn("key=%s value=%s", key, value);
+			};
 		$endif
-		resp.status = 404;
+		r.handler.handle(req, resp)!;
+		return;
 	}
+	$if HTTP_ROUTER_LOG:
+		io::printfn("%s: no route", path);
+	$endif
+	resp.status = 404;
 	self.on_error.handle(req, resp)!;
 }
 

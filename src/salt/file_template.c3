@@ -41,10 +41,10 @@ fn HTTPHandler FileTemplateHandler.as_httphandler(&self)
 }
 
 HTTPHandlerInterface filetemplatehandler_interface = {
-	.handle_fn = fn(h, req, resp) => ((FileTemplateHandler*)h.data).handle(req, resp),
+	.handle_fn = fn(h, ctx, req, resp) => ((FileTemplateHandler*)h.data).handle(ctx, req, resp),
 };
 
-fn void FileTemplateHandler.handle(&self, HTTPRequest* req, HTTPResponse* resp)
+fn void FileTemplateHandler.handle(&self, void* context, HTTPRequest* req, HTTPResponse* resp)
 {
 	Allocator* allocator = mem::temp();
 	FormData! data = req.parse_form(allocator);
@@ -95,7 +95,7 @@ fn usz! FileTemplateHandler.write_stream(&self, Stream writer)
 {
 	return self.template.@render(writer; String name, usz n)
 	{
-		String value = self.data.get(name) ?? self.url.get(name) ?? "";
+		String value = self.data.get(name) ?? self.url.get(name) ?? self. "";
 		n += writer.write(value)!;
 	};
 }

@@ -20,10 +20,10 @@ fn HTTPHandler TextTemplateHandler.as_httphandler(&self)
 }
 
 HTTPHandlerInterface texthandler_interface = {
-	.handle_fn = fn(h, req, resp) => ((TextTemplateHandler*)h.data).handle(req, resp),
+	.handle_fn = fn(h, ctx, req, resp) => ((TextTemplateHandler*)h.data).handle(ctx, req, resp),
 };
 
-fn void TextTemplateHandler.handle(&self, HTTPRequest* req, HTTPResponse* resp)
+fn void TextTemplateHandler.handle(&self, void* context, HTTPRequest* req, HTTPResponse* resp)
 {
 	resp.status = 200;
 	resp.body = self.template.as_stream();

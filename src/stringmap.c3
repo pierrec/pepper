@@ -10,7 +10,7 @@ struct Map
 {
     Entry[MAX_ENTRIES * 2] data;
     ushort[MAX_ENTRIES] keys;
-    ushort len;
+    usz len;
 }
 
 struct Entry
@@ -19,9 +19,9 @@ struct Entry
     String value;
 }
 
-fn void Map.reset(&self)
+fn void Map.clear(&self) @inline
 {
-    *self = {};
+	self.len = 0;
 }
 
 fn bool Map.has(&self, String key)

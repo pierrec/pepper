@@ -24,17 +24,16 @@ fault HTTPError
 {
 	INVALID_REQUEST,
 	TOO_MANY_HEADERS,
-	DUPLICATE_ROUTE,
-	INVALID_ROUTE,
 }
 
 struct HTTPHandler
 {
 	HTTPHandlerInterface *fns;
 	void* data;
+	void* context;
 }
 
-def HTTPHandleFn = fn void! (HTTPHandler, HTTPRequest *req, HTTPResponse *resp);
+def HTTPHandleFn = fn void! (HTTPHandler, void *context, HTTPRequest *req, HTTPResponse *resp);
 
 struct HTTPHandlerInterface
 {
@@ -43,6 +42,6 @@ struct HTTPHandlerInterface
 
 fn void! HTTPHandler.handle(self, HTTPRequest* req, HTTPResponse* resp) @inline
 {
-	if (HTTPHandleFn func = self.fns.handle_fn) return func(self, req, resp);
+	if (HTTPHandleFn func = self.fns.handle_fn) return func(self, self.context, req, resp);
 	return IoError.UNSUPPORTED_OPERATION?;
 }

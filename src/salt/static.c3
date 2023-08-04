@@ -32,10 +32,10 @@ fn HTTPHandler StaticHandler.as_httphandler(&self)
 }
 
 HTTPHandlerInterface fshandler_interface = {
-	.handle_fn = fn(h, req, resp) => ((StaticHandler*)h.data).handle(req, resp),
+	.handle_fn = fn(h, ctx, req, resp) => ((StaticHandler*)h.data).handle(ctx, req, resp),
 };
 
-fn void StaticHandler.handle(&self, HTTPRequest* req, HTTPResponse* resp)
+fn void StaticHandler.handle(&self, void* context, HTTPRequest* req, HTTPResponse* resp)
 {
 	Path! file_name = self.root.append(req.url.path, mem::temp());
 	if (req.url.path.ends_with("/")) file_name = file_name.append(self.index, mem::temp());
