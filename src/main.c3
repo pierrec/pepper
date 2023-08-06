@@ -41,7 +41,7 @@ fn void do_server()
 	h.init("/Users/pierre/sandbox/src/git.sr.ht/pierrec/c3/pepper");
 	FileTemplateHandler fth;
 	defer @ok(fth.free());
-	fth.init("/Users/pierre/sandbox/src/git.sr.ht/pierrec/c3/pepper/resources/module.html")!!;
+	fth.init("/Users/pierre/sandbox/src/git.sr.ht/pierrec/c3/pepper/resources/module.html", .cached = false)!!;
 
 	HTTPRouter r;
 	r.init({}, mem::temp(),

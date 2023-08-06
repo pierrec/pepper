@@ -42,8 +42,10 @@ fn void! serve_client(Socket sock, SocketOption[] options, HTTPHandler handler)
 	foreach (o : options) sock.set_option(o)!;
 
 	char[MAX_HEADERS_SIZE] buffer @noinit;
+	LimitReader sock_limit;
+	sock_limit.init(sock.as_stream(), buffer.len);
 	Scanner sc;
-	sc.init(sock.as_stream(), buffer[..]);
+	sc.init(sock_limit.as_stream(), buffer[..]);
 
 	HTTPRequest req;
 	HTTPResponse resp;
