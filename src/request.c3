@@ -16,9 +16,8 @@ fn void! HTTPRequest.read_from(&self, Scanner* sc, Stream src)
 {
     // Status line.
     char[] line = scan(sc, "\r\n", HTTPError.INVALID_REQUEST)!;
-	$if HTTP_SERVER_LOG:
-		io::printfn("REQUEST line=%s", line);
-	$endif
+	log(DEBUG, io::stderr().as_stream(),
+		"REQUEST line=%s", line);
 	usz i = index_of(line, ' ', HTTPError.INVALID_REQUEST)!;
     self.method = match_enum(HTTPMethod, line[:i])!;
 

@@ -45,3 +45,22 @@ fn void! HTTPHandler.handle(self, void *ctx, HTTPRequest* req, HTTPResponse* res
 	if (HTTPHandleFn func = self.fns.handle_fn) return func(self, ctx, req, resp);
 	return IoError.UNSUPPORTED_OPERATION?;
 }
+
+const LogLevel LOG_LEVEL = NONE;
+
+enum LogLevel
+{
+	NONE,
+	DEBUG,
+	INFO,
+	WARNING,
+	ERROR,
+}
+
+macro void log(LogLevel $level, Stream writer, String format, args...)
+{
+	$if (LOG_LEVEL >= $level):
+		io::printf("[%s] ", $level);
+		io::printfn(format, ...args);
+	$endif
+}

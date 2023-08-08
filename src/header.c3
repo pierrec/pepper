@@ -9,7 +9,12 @@ def HTTPHeaderMap = Map(<8>);
 struct HTTPHeader
 {
 	HTTPHeaderMap data;
+	CookieJar cookies;
 }
+
+// https://httpwg.org/specs/rfc6265.html#cookie
+
+def CookieJar = Map(<6>);
 
 fn String! HTTPHeader.get(&self, String name)
 {
@@ -42,9 +47,35 @@ fn void! HTTPHeader.scan(&self, Scanner *sc)
 		canonicalize(name)!;
 		String value = (String)bytes[i + 1..];
 		self.set(name, value)!;
-		$if HTTP_SERVER_LOG:
-			io::printfn("HEADER %s=%s", name, value);
-		$endif
+		log(DEBUG, io::stderr().as_stream(),
+			"HEADER %s=%s", name, value);
+		if (name == "Cookie")
+		{
+			self.cookies.clear();
+			while (value.len > 0)
+			{
+				String cookie;
+				if (try pair = value.index_of("; "))
+				{
+					cookie = value[:pair];
+					value = value[pair + 2..];
+				}
+				else
+				{
+					cookie = value;
+					value = "";
+				}
+				usz! cookie_idx = cookie.index_of_char('=');
+				if (catch cookie_idx)
+				{
+					// Abort the parsing without error.
+					break;
+				}
+				String cookie_name = cookie[:cookie_idx].trim();
+				String cookie_value = cookie[cookie_idx + 1..];
+				self.cookies.set(cookie_name, cookie_value);
+			}
+		}
 	}
 }
 

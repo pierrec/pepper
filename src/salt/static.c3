@@ -41,7 +41,8 @@ fn void StaticHandler.handle(&self, HTTPContext* ctx, HTTPRequest* req, HTTPResp
 	if (req.url.path.ends_with("/")) file_name = file_name.append(self.index, mem::temp());
 	if (catch err = file_name)
 	{
-		io::printfn("root=%s req.path=%s: %s", self.root.as_str(), req.url.path, err);
+		http::log(ERROR, io::stderr().as_stream(),
+			"root=%s req.path=%s: %s", self.root.as_str(), req.url.path, err);
 		resp.status = 500;
 		@ok(self.on_error.handle(ctx, req, resp));
 		return;
@@ -49,7 +50,8 @@ fn void StaticHandler.handle(&self, HTTPContext* ctx, HTTPRequest* req, HTTPResp
 	File! f = file::open(file_name.as_str(), "r");
 	if (catch err = f)
 	{
-		io::printfn("%s: %s", file_name.as_str(), err);
+		http::log(ERROR, io::stderr().as_stream(),
+			"%s: %s", file_name.as_str(), err);
 		resp.status = 500;
 		@ok(self.on_error.handle(ctx, req, resp));
 		return;

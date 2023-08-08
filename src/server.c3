@@ -2,7 +2,6 @@ module http;
 import std::io;
 import std::net;
 
-const HTTP_SERVER_LOG = false;
 const MAX_HEADERS_SIZE = 16 << 10;
 
 struct HTTPServer
@@ -62,7 +61,8 @@ fn void! serve_client(Socket sock, SocketOption[] options, HTTPHandler handler)
 
 	if (catch err = handler.handle(null, &req, &resp))
 	{
-		io::printfn("[%s] %s %s", req.method, req.url.path, err);
+		log(ERROR, io::stderr().as_stream(),
+			"[%s] %s %s", req.method, req.url.path, err);
 		return;
 	}
 	resp.write_stream(sock.as_stream())!;

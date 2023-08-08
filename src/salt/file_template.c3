@@ -1,4 +1,4 @@
-module http::handlers::texttemplate(<Type>);
+module http::handlers;
 import std::io;
 import template;
 
@@ -51,7 +51,8 @@ fn void FileTemplateHandler.handle(&self, HTTPContext* ctx, HTTPRequest* req, HT
 	FormData! data = req.parse_form(allocator);
 	if (catch err = data)
 	{
-		io::printfn("%s: %s", self.file_path, err);
+		http::log(ERROR, io::stderr().as_stream(),
+			"%s: %s", self.file_path, err);
 		resp.status = 500;
 		@ok(self.on_error.handle(ctx, req, resp));
 		return;
@@ -65,7 +66,8 @@ fn void FileTemplateHandler.handle(&self, HTTPContext* ctx, HTTPRequest* req, HT
 		File! f = file::open(self.file_path, "r");
 		if (catch err = f)
 		{
-			io::printfn("%s: %s", self.file_path, err);
+			http::log(ERROR, io::stderr().as_stream(),
+				"%s: %s", self.file_path, err);
 			resp.status = 500;
 			@ok(self.on_error.handle(ctx, req, resp));
 			return;
@@ -73,7 +75,8 @@ fn void FileTemplateHandler.handle(&self, HTTPContext* ctx, HTTPRequest* req, HT
 		defer @ok(f.close());
 		if (catch err = self.template.init(f.as_stream(), self.start, self.end, allocator))
 		{
-			io::printfn("%s: %s", self.file_path, err);
+			http::log(ERROR, io::stderr().as_stream(),
+				"%s: %s", self.file_path, err);
 			resp.status = 500;
 			@ok(self.on_error.handle(ctx, req, resp));
 			return;

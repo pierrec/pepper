@@ -71,9 +71,8 @@ fn void! HTTPRouter.init(&self,
 			HTTPRoute prev = routes[i - 1];
 			if (r.method == prev.method && r.route == prev.route) return HTTPRouterError.DUPLICATE_ROUTE?;
 		}
-		$if HTTP_ROUTER_LOG:
-			io::printfn("ROUTER init method=%s route=%s", r.method, r.route);
-		$endif
+		log(DEBUG, io::stderr().as_stream(),
+			"ROUTER init method=%s route=%s", r.method, r.route);
 		HTTPRouteList* list = self.routes.get_ref(r.method);
 		if (list.len() == 0) list.init(.using = allocator);
 		String[] sub_routes = {|
@@ -96,23 +95,14 @@ fn void! HTTPRouter.init(&self,
 				s = s[end + DYN_END_TAG.len..];
 			}
 		|}!;
-		$if HTTP_ROUTER_LOG:
-			io::printf("%s: sub path elements:", r.route);
-			foreach (s : sub_routes)
-			{
-				io::printf(" <<%s>>", s);
-			}
-			io::printfn("");
-		$endif
+		log(DEBUG, io::stderr().as_stream(),
+			"%s: sub path elements:", r.route);
+		foreach (s : sub_routes)
+		{
+			log(DEBUG, io::stderr().as_stream(), " <<%s>>", s);
+		}
 		list.push({ .sub_routes = sub_routes, .handler = r.handler });
 	}
-
-	$if HTTP_ROUTER_LOG:
-		foreach (m : HTTPMethod.values)
-		{
-			io::printfn("%s -> %d", m, self.routes[m].len());
-		}
-	$endif
 }
 
 fn void! HTTPRouter.free(&self)
@@ -145,9 +135,8 @@ fn void! HTTPRouter.handle(&self, HTTPContext* ctx, HTTPRequest* req, HTTPRespon
 	}
 
 	HTTPRouteList routes = self.routes.get(req.method);
-	$if HTTP_ROUTER_LOG:
-		io::printfn("found %d potential routes for method %s", routes.len(), req.method);
-	$endif
+	log(DEBUG, io::stderr().as_stream(),
+		"found %d potential routes for method %s", routes.len(), req.method);
 	if (routes.len() == 0)
 	{
 		resp.status = 405;
@@ -156,9 +145,8 @@ fn void! HTTPRouter.handle(&self, HTTPContext* ctx, HTTPRequest* req, HTTPRespon
 		return;
 	}
 	String path = req.url.path;
-	$if HTTP_ROUTER_LOG:
-		io::printfn("incoming request method=%s route=%s", req.method, path);
-	$endif
+	log(DEBUG, io::stderr().as_stream(),
+		"incoming request method=%s route=%s", req.method, path);
 	foreach ROUTES: (r : routes)
 	{
 		String p = path;
@@ -190,19 +178,18 @@ fn void! HTTPRouter.handle(&self, HTTPContext* ctx, HTTPRequest* req, HTTPRespon
 				self.context.path_data.set(key, value);
 			}
 		}
-		$if HTTP_ROUTER_LOG:
-			io::printfn("%s: match found: %s, keys=%d", path, r.sub_routes, self.context.path_data.len);
+		log(DEBUG, io::stderr().as_stream(),
+			"%s: match found: %s, keys=%d", path, r.sub_routes, self.context.path_data.len);
 			self.context.path_data.@each(; String key, String value)
 			{
-				io::printfn("key=%s value=%s", key, value);
+				log(DEBUG, io::stderr().as_stream(),
+					"key=%s value=%s", key, value);
 			};
-		$endif
 		r.handler.handle(ctx, req, resp)!;
 		return;
 	}
-	$if HTTP_ROUTER_LOG:
-		io::printfn("%s: no route", path);
-	$endif
+	log(DEBUG, io::stderr().as_stream(),
+		"%s: no route", path);
 	resp.status = 404;
 	self.on_error.handle(ctx, req, resp)!;
 }
