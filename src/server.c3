@@ -2,7 +2,7 @@ module http;
 import std::io;
 import std::net;
 
-const MAX_HEADERS_SIZE = 16 << 10;
+const MAX_HEADERS_SIZE = 8 << 10;
 const READ_BUFFER_SIZE = 4 << 10;
 const WRITE_BUFFER_SIZE = 4 << 10;
 
@@ -20,6 +20,7 @@ fn void! HTTPServer.init(&srv, String address, int backlog = 100)
 		host = address[:i];
 		port = address[i + 1..];
 	}
+	log(INFO, io::stderr().as_stream(), "listening on %s:%s", host, port);
 	srv.listener.init(TCP, host, port, backlog, REUSEADDR, REUSEPORT)!;
 }
 
@@ -73,11 +74,6 @@ fn void! serve_client(Socket sock, SocketOption[] options, HTTPHandler handler)
 			resp.status = 500;
 	}
 
-	if (catch err = handler.handle(null, &req, &resp))
-	{
-		log(ERROR, io::stderr().as_stream(),
-			"[%s] %s %s", req.method, req.url.path, err);
-		return;
-	}
+	handler.handle(null, &req, &resp);
 	resp.write_stream(sock.as_stream())!;
 }

@@ -47,16 +47,17 @@ HTTPHandlerInterface filetemplatehandler_interface = {
 
 fn void FileTemplateHandler.handle(&self, HTTPContext* ctx, HTTPRequest* req, HTTPResponse* resp)
 {
-	Allocator* allocator = mem::temp();
-	FormData! data = req.parse_form(allocator);
-	if (catch err = data)
+	anyfault err;
+	defer if (err)
 	{
 		http::log(ERROR, io::stderr().as_stream(),
 			"%s: %s", self.file_path, err);
 		resp.status = 500;
-		@ok(self.on_error.handle(ctx, req, resp));
-		return;
+		self.on_error.handle(ctx, req, resp);
 	}
+	Allocator* allocator = mem::temp();
+	FormData! data = req.parse_form(allocator);
+	if (catch err = data) return;
 	self.data = data;
 	self.url = req.url;
 	self.path_data = ctx.path_data;
@@ -64,23 +65,9 @@ fn void FileTemplateHandler.handle(&self, HTTPContext* ctx, HTTPRequest* req, HT
 	if (!self.cached || !self.template.is_initialized())
 	{
 		File! f = file::open(self.file_path, "r");
-		if (catch err = f)
-		{
-			http::log(ERROR, io::stderr().as_stream(),
-				"%s: %s", self.file_path, err);
-			resp.status = 500;
-			@ok(self.on_error.handle(ctx, req, resp));
-			return;
-		}
+		if (catch err = f) return;
 		defer @ok(f.close());
-		if (catch err = self.template.init(f.as_stream(), self.start, self.end, allocator))
-		{
-			http::log(ERROR, io::stderr().as_stream(),
-				"%s: %s", self.file_path, err);
-			resp.status = 500;
-			@ok(self.on_error.handle(ctx, req, resp));
-			return;
-		}
+		if (catch err = self.template.init(f.as_stream(), self.start, self.end, allocator)) return;
 	}
 	resp.status = 200;
 	resp.body = self.as_stream();

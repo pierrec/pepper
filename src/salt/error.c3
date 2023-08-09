@@ -49,7 +49,7 @@ HTTPHandlerInterface httperror_interface = {
 	.handle_fn = fn(h, ctx, req, resp) => ((HTTPHandlerHTTPError*)h.data).handle(ctx, req, resp),
 };
 
-fn void! HTTPHandlerHTTPError.handle(&self, HTTPContext* ctx, HTTPRequest* req, HTTPResponse* resp)
+fn void HTTPHandlerHTTPError.handle(&self, HTTPContext* ctx, HTTPRequest* req, HTTPResponse* resp)
 {
 	self.template.data = {
 		.status = resp.status.as_str(),

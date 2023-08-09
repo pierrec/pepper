@@ -126,11 +126,11 @@ HTTPHandlerInterface httprouter_interface = {
 	.handle_fn = fn(h, ctx, req, resp) => ((HTTPRouter*)h.data).handle(h.context, req, resp),
 };
 
-fn void! HTTPRouter.handle(&self, HTTPContext* ctx, HTTPRequest* req, HTTPResponse* resp)
+fn void HTTPRouter.handle(&self, HTTPContext* ctx, HTTPRequest* req, HTTPResponse* resp)
 {
 	if (resp.status != 200)
 	{
-		self.on_error.handle(ctx, req, resp)!;
+		self.on_error.handle(ctx, req, resp);
 		return;
 	}
 
@@ -140,8 +140,8 @@ fn void! HTTPRouter.handle(&self, HTTPContext* ctx, HTTPRequest* req, HTTPRespon
 	if (routes.len() == 0)
 	{
 		resp.status = 405;
-		resp.header.set("Allow", req.method.nameof)!;
-		self.on_error.handle(ctx, req, resp)!;
+		resp.header.set("Allow", req.method.nameof)!!;
+		self.on_error.handle(ctx, req, resp);
 		return;
 	}
 	String path = req.url.path;
@@ -185,11 +185,11 @@ fn void! HTTPRouter.handle(&self, HTTPContext* ctx, HTTPRequest* req, HTTPRespon
 				log(DEBUG, io::stderr().as_stream(),
 					"key=%s value=%s", key, value);
 			};
-		r.handler.handle(ctx, req, resp)!;
+		r.handler.handle(ctx, req, resp);
 		return;
 	}
 	log(DEBUG, io::stderr().as_stream(),
 		"%s: no route", path);
 	resp.status = 404;
-	self.on_error.handle(ctx, req, resp)!;
+	self.on_error.handle(ctx, req, resp);
 }

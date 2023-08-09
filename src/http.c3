@@ -33,33 +33,32 @@ struct HTTPHandler
 	void* context;
 }
 
-def HTTPHandleFn = fn void! (HTTPHandler, void *context, HTTPRequest *req, HTTPResponse *resp);
+def HTTPHandleFn = fn void (HTTPHandler, void *context, HTTPRequest *req, HTTPResponse *resp);
 
 struct HTTPHandlerInterface
 {
 	HTTPHandleFn handle_fn;
 }
 
-fn void! HTTPHandler.handle(self, void *ctx, HTTPRequest* req, HTTPResponse* resp) @inline
+fn void HTTPHandler.handle(self, void *ctx, HTTPRequest* req, HTTPResponse* resp) @inline
 {
-	if (HTTPHandleFn func = self.fns.handle_fn) return func(self, ctx, req, resp);
-	return IoError.UNSUPPORTED_OPERATION?;
+	self.fns.handle_fn(self, ctx, req, resp);
 }
 
-const LogLevel LOG_LEVEL = NONE;
+const LogLevel LOG_LEVEL = INFO;
 
 enum LogLevel
 {
 	NONE,
-	DEBUG,
 	INFO,
 	WARNING,
 	ERROR,
+	DEBUG,
 }
 
 macro void log(LogLevel $level, Stream writer, String format, args...)
 {
-	$if (LOG_LEVEL >= $level):
+	$if (LOG_LEVEL != NONE && $level <= LOG_LEVEL):
 		io::printf("[%s] ", $level);
 		io::printfn(format, ...args);
 	$endif

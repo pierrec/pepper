@@ -44,7 +44,7 @@ fn void StaticHandler.handle(&self, HTTPContext* ctx, HTTPRequest* req, HTTPResp
 		http::log(ERROR, io::stderr().as_stream(),
 			"root=%s req.path=%s: %s", self.root.as_str(), req.url.path, err);
 		resp.status = 500;
-		@ok(self.on_error.handle(ctx, req, resp));
+		self.on_error.handle(ctx, req, resp);
 		return;
 	}
 	File! f = file::open(file_name.as_str(), "r");
@@ -53,7 +53,7 @@ fn void StaticHandler.handle(&self, HTTPContext* ctx, HTTPRequest* req, HTTPResp
 		http::log(ERROR, io::stderr().as_stream(),
 			"%s: %s", file_name.as_str(), err);
 		resp.status = 500;
-		@ok(self.on_error.handle(ctx, req, resp));
+		self.on_error.handle(ctx, req, resp);
 		return;
 	}
 	resp.status = 200;
