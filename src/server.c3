@@ -3,6 +3,8 @@ import std::io;
 import std::net;
 
 const MAX_HEADERS_SIZE = 16 << 10;
+const READ_BUFFER_SIZE = 4 << 10;
+const WRITE_BUFFER_SIZE = 4 << 10;
 
 struct HTTPServer
 {
@@ -28,9 +30,14 @@ fn void! HTTPServer.serve(&srv, HTTPHandler handler, SocketOption... options)
 {
 	while (true)
 	{
-		Socket client_sock = srv.listener.accept()!;
+		Socket! client_sock = srv.listener.accept();
+		if (catch err = client_sock)
+		{
+			log(ERROR, io::stderr().as_stream(), "[%s] accept(): %s", err);
+		}
 		if (catch err = serve_client(client_sock, options, handler))
 		{
+			log(ERROR, io::stderr().as_stream(), "[%s] serve_client(): %s", err);
 		}
 	}
 }
@@ -40,16 +47,23 @@ fn void! serve_client(Socket sock, SocketOption[] options, HTTPHandler handler)
 	defer sock.close()!!;
 	foreach (o : options) sock.set_option(o)!;
 
+	char[READ_BUFFER_SIZE] read_buffer @noinit;
+	char[WRITE_BUFFER_SIZE] write_buffer @noinit;
+	ReadBuffer read_buf;
+	ReadBuffer write_buf;
+	read_buf.init(sock.as_stream(), read_buffer[..]);
+	write_buf.init(sock.as_stream(), write_buffer[..]);
+
 	char[MAX_HEADERS_SIZE] buffer @noinit;
 	LimitReader sock_limit;
-	sock_limit.init(sock.as_stream(), buffer.len);
+	sock_limit.init(read_buf.as_stream(), buffer.len);
 	Scanner sc;
 	sc.init(sock_limit.as_stream(), buffer[..]);
 
 	HTTPRequest req;
 	HTTPResponse resp;
 	resp.init();
-	if (catch req.read_from(&sc, sock.as_stream()))
+	if (catch req.read_from(&sc, write_buf.as_stream()))
 	{
 		case HTTPError.INVALID_REQUEST:
 			resp.status = 400;
