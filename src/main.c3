@@ -1,42 +1,61 @@
 module http::handlers;
-import std::io;
 import http::handlers::texttemplate;
+import std::io;
 
-def Handler = TextTemplateHandler(<Data>);
+const DEFAULT_HOST = "localhost";
+const DEFAULT_PORT = "8080";
 
-struct Data
+fn void main(String[] args)
 {
-	String user;
+	String host = DEFAULT_HOST;
+	String port = DEFAULT_PORT;
+	for (usz i = 1; i < args.len; i++)
+	{
+		String arg = args[i];
+		switch (arg)
+		{
+			case "-h":
+				i++;
+				if (i == args.len)
+				{
+					error("missing host");
+					return;
+				}
+				host = args[i];
+			case "-p":
+				i++;
+				if (i == args.len)
+				{
+					error("missing port");
+					return;
+				}
+				port = args[i];
+			default:
+				error("invalid option '%s'", arg);
+				return;
+		}
+	}
+	start_server(host, port)!!;
 }
 
-fn int main(String[] args)
+fn void error(String msg, String... args)
 {
-	//do_client();
-	do_server();
-	return 0;
+	io::stderr().printfn(msg, args);
 }
 
-//fn void do_client()
-//{
-//    HTTPClient client;
-//    HTTPRequest req = {
-//        .method = GET,
-//        .url = { .host = "www.example.com:80", .path = "/" },
-//        .proto = HTTP1_0,
-//    };
-//    HTTPResponse resp;
-//    resp.init();
-//    client.do_request(&req, &resp)!!;
-//    //io::printn(resp.status);
-//    io::printn(resp.body);
-//}
+fn void usage()
+{
+	io::printf(`Usage: pepper [options]
+where options can be:
+	-h listening host (default=%s)
+	-p listening port (default=%s)
+`, DEFAULT_HOST, DEFAULT_PORT);
+}
 
-fn void do_server()
+fn void! start_server(String host, String port)
 {
 	HTTPServer server;
-	server.init("localhost:8081", 1000)!!;
-	//Handler h;
-	//h.init("hello {{user}}", { "Joe" })!!;
+	server.init(host, port, 100)!;
 	StaticHandler h;
 	h.init("/Users/pierre/sandbox/src/git.sr.ht/pierrec/c3/pepper");
 	FileTemplateHandler fth;
@@ -49,8 +68,7 @@ fn void do_server()
 		{ GET, "/doc/{module}/{id}/type", fth.as_httphandler() },
 		{ GET, "/resources/", h.as_httphandler() },
 		{ GET, "/doc/{module}", fth.as_httphandler() }
-		//{ GET, "/", fth.as_httphandler() }
 		)!!;
 
-	server.serve(r.as_httphandler())!!;
+	server.serve(r.as_httphandler())!;
 }

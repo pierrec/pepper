@@ -11,15 +11,8 @@ struct HTTPServer
 	Listener listener;
 }
 
-fn void! HTTPServer.init(&srv, String address, int backlog = 100)
+fn void! HTTPServer.init(&srv, String host, String port, int backlog = 100)
 {
-	String host = address;
-	String port = "80";
-	if (try i = address.index_of_char(':'))
-	{
-		host = address[:i];
-		port = address[i + 1..];
-	}
 	log(INFO, io::stderr().as_stream(), "listening on %s:%s", host, port);
 	srv.listener.init(TCP, host, port, backlog, REUSEADDR, REUSEPORT)!;
 }
