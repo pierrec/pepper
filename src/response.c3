@@ -126,7 +126,7 @@ fn usz! HTTPResponse.write_stream(&self, Stream dst)
 	defer @ok(self.body.close());
 	if (!self.status.is_valid()) return HTTPResponseError.INVALID_STATUS?;
 
-	self.header.set("Connection", "close")!;
+	//self.header.set("Connection", "close")!;
 
 	usz written;
 

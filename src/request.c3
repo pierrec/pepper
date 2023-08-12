@@ -66,6 +66,16 @@ fn usz! HTTPRequest.write_to(&self, Stream dst)
     return written;
 }
 
+fn bool HTTPRequest.next(&self)
+{
+	if (try s = self.header.get("Connection"))
+	{
+		s.convert_ascii_to_lower();
+		if (s == "keep-alive") return true;
+	}
+	return false;
+}
+
 /**
  * On requests with a method of POST, PUT or PATCH, parse the body for
  * form values and return them.

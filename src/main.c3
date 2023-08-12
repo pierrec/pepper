@@ -68,7 +68,7 @@ fn void! start_server(String host, String port)
 		{ GET, "/doc/{module}/{id}/type", fth.as_httphandler() },
 		{ GET, "/resources/", h.as_httphandler() },
 		{ GET, "/doc/{module}", fth.as_httphandler() }
-		)!!;
+	)!!;
 
 	server.serve(r.as_httphandler())!;
 }
