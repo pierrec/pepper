@@ -1,4 +1,5 @@
-module http::handlers;
+module http;
+import http::handlers;
 import http::handlers::texttemplate;
 import std::io;
 
@@ -52,6 +53,13 @@ where options can be:
 `, DEFAULT_HOST, DEFAULT_PORT);
 }
 
+def TextTemplate = texttemplate::TextTemplate(<Data>);
+
+struct Data
+{
+	int x;
+}
+
 fn void! start_server(String host, String port)
 {
 	HTTPServer server;
@@ -61,9 +69,12 @@ fn void! start_server(String host, String port)
 	FileTemplateHandler fth;
 	defer @ok(fth.free());
 	fth.init("/Users/pierre/sandbox/src/git.sr.ht/pierrec/c3/pepper/resources/module.html", .cached = false)!!;
+	TextTemplateHandler text;
+	text.init("Hello world!!")!;
 
 	HTTPRouter r;
 	r.init({}, mem::temp(),
+		{ GET, "/", text.as_httphandler() },
 		{ POST, "/", fth.as_httphandler() },
 		{ GET, "/doc/{module}/{id}/type", fth.as_httphandler() },
 		{ GET, "/resources/", h.as_httphandler() },
