@@ -68,11 +68,11 @@ fn usz! HTTPRequest.write_to(&self, Stream dst)
 
 fn bool HTTPRequest.next(&self)
 {
-	if (try s = self.header.get("Connection"))
-	{
-		s.convert_ascii_to_lower();
-		if (s == "keep-alive") return true;
-	}
+//	if (try s = self.header.get("Connection"))
+//	{
+//		s.convert_ascii_to_lower();
+//		if (s == "keep-alive") return true;
+//	}
 	return false;
 }
 

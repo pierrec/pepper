@@ -38,7 +38,7 @@ HTTPHandlerInterface fshandler_interface = {
 fn void StaticHandler.handle(&self, HTTPContext* ctx, HTTPRequest* req, HTTPResponse* resp)
 {
 	Path! file_name = self.root.append(req.url.path, mem::temp());
-	if (req.url.path.ends_with("/")) file_name = file_name.append(self.index, mem::temp());
+	//if (req.url.path.ends_with("/")) file_name = file_name.append(self.index, mem::temp());
 	if (catch err = file_name)
 	{
 		http::log(ERROR, io::stderr().as_stream(),
@@ -51,7 +51,7 @@ fn void StaticHandler.handle(&self, HTTPContext* ctx, HTTPRequest* req, HTTPResp
 	if (catch err = f)
 	{
 		http::log(ERROR, io::stderr().as_stream(),
-			"%s: %s", file_name.as_str(), err);
+			"file::open: %s: %s", file_name.as_str(), err);
 		resp.status = 500;
 		self.on_error.handle(ctx, req, resp);
 		return;

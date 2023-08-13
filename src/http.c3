@@ -45,7 +45,7 @@ fn void HTTPHandler.handle(self, void *ctx, HTTPRequest* req, HTTPResponse* resp
 	self.fns.handle_fn(self, ctx, req, resp);
 }
 
-const LogLevel LOG_LEVEL = INFO;
+const LogLevel LOG_LEVEL = ERROR;
 
 enum LogLevel
 {

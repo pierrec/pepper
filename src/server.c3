@@ -1,50 +1,64 @@
 module http;
+import std::collections::list;
 import std::io;
 import std::net;
 import std::thread;
-import std::collections::list;
+import std::thread::pool;
 
 const MAX_HEADERS_SIZE = 8 << 10;
 const READ_BUFFER_SIZE = 4 << 10;
 const WRITE_BUFFER_SIZE = 4 << 10;
 
-def HTTPServerClientList = List(<HTTPServerClient>);
+def ClientList = List(<Client>) @local;
+def ThreadPool = ThreadPool(<4 + 1>);
 
 struct HTTPServer
 {
+	Allocator* allocator;
 	Listener listener;
-	HTTPServerClientList clients;
-}
-
-struct HTTPServerClient
-{
-	Thread thread;
-	Socket sock;
-	HTTPServerConfig* config;
-}
-
-struct HTTPServerConfig
-{
+	ThreadPool pool;
 	HTTPHandler handler;
 	SocketOption[] options;
+
+	Mutex mu;
+	ClientList clients;
 }
 
-fn void! HTTPServer.init(&self, String host, String port, int backlog = 100)
+struct Client
 {
+	HTTPServer* server;
+	Socket sock;
+}
+
+fn void! HTTPServer.init(&self, String host, String port, int backlog = 100, Allocator* allocator)
+{
+	*self = { .allocator = allocator };
+	self.mu.init()!;
+	self.clients.init(.using = allocator);
+	self.pool.init()!;
 	log(INFO, io::stderr().as_stream(), "listening on %s:%s", host, port);
 	self.listener.init(TCP, host, port, backlog, REUSEADDR, REUSEPORT)!;
 }
 
 fn void! HTTPServer.close(&self)
 {
+	if (self.allocator)
+	{
+		self.pool.stop_and_destroy()!;
+		self.clients.free();
+		self.mu.destroy()!;
+		*self = {};
+	}
 }
 
 /**
+ * @require self.allocator != null
  * All options are applied to incoming connections.
  **/
 fn void! HTTPServer.serve(&self, HTTPHandler handler, SocketOption... options)
 {
-	HTTPServerConfig config = {handler, options};
+	self.handler = handler;
+	self.options = options;
 	while (true)
 	{
 		Socket! client_sock = self.listener.accept();
@@ -52,26 +66,19 @@ fn void! HTTPServer.serve(&self, HTTPHandler handler, SocketOption... options)
 		{
 			log(ERROR, io::stderr().as_stream(), "Server accept(): %s", err);
 		}
-		self.clients.push({ .sock = client_sock, .config = &config });
-		HTTPServerClient* client = self.clients.last();
-		client.init();
-		// TODO remove client upon completion
+		self.mu.lock()!!;
+		self.clients.push({ self, client_sock })!!;
+		Client* client = self.clients.last();
+		self.mu.unlock()!!;
+		//while (!self.pool.push((ThreadFn)&Client.serve, client)!!) {}
+		self.pool.push((ThreadFn)&Client.serve, client)!!;
 	}
 }
 
-fn void HTTPServerClient.init(&self)
-{
-	if (catch err = self.thread.create((ThreadFn)&HTTPServerClient.serve, self))
-	{
-		log(ERROR, io::stderr().as_stream(), "Client thread::create(): %s", err);
-		return;
-	}
-}
-
-fn int HTTPServerClient.serve(&self)
+fn int Client.serve(&self)
 {
 	defer @ok(self.sock.close());
-	foreach (o : self.config.options)
+	foreach (o : self.server.options)
 	{
 		if (catch self.sock.set_option(o)) return 1;
 	}
@@ -103,7 +110,7 @@ fn int HTTPServerClient.serve(&self)
 			default:
 				resp.status = 500;
 		}
-		self.config.handler.handle(null, &req, &resp);
+		self.server.handler.handle(null, &req, &resp);
 		if (catch resp.write_stream(self.sock.as_stream())) return 2;
 	} while (req.next());
 	return 0;
